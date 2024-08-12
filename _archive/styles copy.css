@@ -1,0 +1,275 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #121212;
+    color: #e0e0e0;
+    /* line-height: 1.6; */
+    padding: 20px;
+    margin: 0;
+}
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+h1, h2 {
+    color: #bb86fc;
+}
+h3 {
+    color: #bbbbbb;
+    margin-bottom: 0;
+}
+h1, h3 {
+    margin-top: 5px;
+}
+form {
+    margin-bottom: 20px;
+}
+.form-container {
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+}
+.form-container form {
+    background-color: #1e1e1e;
+    border: 1px solid #333;
+    padding: 16px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    width: 45%;
+    margin-bottom: 20px;
+}
+input[type="file"], input[type="text"], input[type="number"], input[type="submit"], button {
+    background-color: #2e2e2e;
+    border: 1px solid #bb86fc;
+    color: #e0e0e0;
+    padding: 5px;
+    margin: 5px 0;
+    border-radius: 5px;
+    font-size: 1em;
+}
+.select-button, .delete-button {
+    /* height: 30px; Adjust the height as needed */
+    /* padding: 5px 10px; Adjust padding if necessary */
+    /* line-height: 30px; Match the line-height to the height of the button */
+    vertical-align: middle; /* Ensure vertical alignment */
+}
+input[type="submit"], button {
+    background-color: #bb86fc;
+    color: #1e1e1e;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    height: auto;
+}
+input[type="submit"]:hover, button:hover {
+    background-color: #a370f7;
+}
+.gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+}
+.gallery-item {
+    position: relative;
+    transition: width 0.3s, height 0.3s;
+    width: 150px;
+    height: 150px;
+}
+
+/* Style for the delete button (X button) */
+.delete-button {
+    position: absolute;
+    top: 0px;
+    right: 0px;
+    background: rgb(0, 0, 0);
+    color: white;
+    border: none;
+    width: 20px;
+    height: 20px;
+    text-align: center;
+    cursor: pointer;
+    border-radius: 0;
+    margin: 0;
+    padding: 0;
+}
+.delete-button:hover {
+    background: rgb(206, 0, 0); /* Change background color on hover */
+    color: white; /* Ensure text color remains white */
+}
+
+/* .gallery-item {
+    background-color: #1e1e1e;
+    border-radius: 10px;
+    overflow: hidden;
+    transition: transform 0.3s, box-shadow 0.3s;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+} */
+/* .gallery-item {
+    width: 150px;
+    height: 150px;
+    margin: 10px;
+    text-align: center;
+    vertical-align: top;
+} */
+.gallery-item:hover {
+    transform: scale(1.05);
+    box-shadow: 0px 0px 20px rgba(255, 255, 255, 0.568);
+}
+.gallery-item img {
+    width: 100%;
+    height: 80%;
+    object-fit: cover;
+}
+.current-image {
+    border: 5px solid rgb(61, 126, 0);
+    box-sizing: border-box;
+    /* box-shadow: 0px 0px 20px rgba(255, 255, 255, 0.568); */
+    /* border-radius: 10px; */
+}
+.gallery-item .info {
+    /* padding: 10px; */
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    padding-left: 5px;
+    align-items: center;
+}
+.info a {
+    margin-right: 10px; /* Adjust the spacing as needed */
+}
+.portrait-icon, .landscape-icon {
+    display: inline;
+    margin-left: 5px; /* Adjust the spacing as needed */
+}
+.gallery-item .filename {
+    margin-bottom: auto;
+}
+.gallery-item .actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+.gallery-item .actions form {
+    margin: 0;
+    flex-grow: 1;
+}
+.gallery-item .actions button {
+    /* padding: 10px; */
+    font-size: 1em;
+    width: 100%;
+}
+
+.portrait-icon, .landscape-icon {
+    display: none;
+}
+
+.gallery-item.portrait .portrait-icon {
+    display: inline;
+}
+
+.gallery-item.landscape .landscape-icon {
+    display: inline;
+}
+
+.controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+}
+.controls form {
+    margin: 0;
+}
+.device-name-container {
+    display: flex;
+    align-items: center;
+}
+.device-name-container h3 {
+    margin-bottom: 0; 
+}
+.device-name-container span {
+    display: block; 
+    margin-top: 5px; 
+}                   
+.device-name-container .edit-icon {
+    cursor: pointer;
+    margin-left: 5px;
+    padding: 5px 5px; 
+    font-size: 0.75em; 
+}
+.device-name-input {
+    display: none;
+    min-width: 150px;
+}
+#mqttConfigForm label, #mqttConfigForm input {
+    display: block;
+    margin-bottom: 10px;
+}
+#mqttConfigForm label {
+    margin-bottom: 5px;
+}
+#mqttConfigForm input {
+    width: 100%;
+}
+.status-connected {
+    color: #00ff00;
+}
+.status-disconnected {
+    color: #ff0000;
+}
+
+/* Settings Menu Styling */
+.settings-menu {
+    position: fixed;
+    top: 50px;
+    bottom: 50px;
+    right: -100%; /* Hide by default */
+    width: 300px;
+    background-color: #1f1f1f; /* Updated to match main page background */
+    color: #e0e0e0; /* Ensure text color matches main page */
+    box-shadow: 0px 0px 10px rgba(116, 116, 116, 0.5);
+    transition: right 0.5s;
+    padding: 20px; /* Add padding for content inside settings menu */
+    overflow-y: auto; /* Enable vertical scrolling if content overflows */
+    z-index: 1000; /* High z-index value */
+
+}
+
+/* Hamburger Icon Styling */
+.hamburger-icon {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    width: 30px;
+    height: 25px;
+}
+  
+.hamburger-icon span {
+display: block;
+height: 2px;
+width: 100%;
+background: #e0e0e0;
+transition: all 0.3s ease-in-out;
+}
+
+/* Animation to X */
+.hamburger-icon.open span:nth-child(1) {
+transform: rotate(45deg) translate(5px, 5px);
+}
+
+.hamburger-icon.open span:nth-child(2) {
+opacity: 0;
+}
+  
+.hamburger-icon.open span:nth-child(3) {
+transform: rotate(-45deg) translate(7px, -7px);
+}
+
+/* Update .settings-menu.open to work with the new icon */
+.settings-menu.open {
+    right: 0;
+}

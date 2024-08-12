@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Canvas</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --text-color: #e0e0e0;
+            --accent-color: #bb86fc;
+            --secondary-color: #03dac6;
+            --error-color: #cf6679;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1, h2, h3 {
+            color: var(--accent-color);
+        }
+
+        .device-name-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background-color: #1e1e1e;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        #deviceNameText {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        .form-container, .controls {
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"], input[type="number"], input[type="file"] {
+            background-color: #2c2c2c;
+            border: none;
+            padding: 10px;
+            color: var(--text-color);
+            border-radius: 4px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #9d66fd;
+        }
+
+        #mqttStatus {
+            margin-top: 10px;
+        }
+
+        .status-connected {
+            color: var(--secondary-color);
+        }
+
+        .status-disconnected {
+            color: var(--error-color);
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .gallery-item {
+            background-color: #1e1e1e;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: transform 0.3s;
+        }
+
+        .gallery-item:hover {
+            transform: scale(1.05);
+        }
+
+        .gallery-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+        }
+
+        .info {
+            padding: 10px;
+        }
+
+        .actions {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+        }
+
+        .actions button {
+            flex: 1;
+            margin: 0 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Digital Canvas</h1>
+
+        <h3>Device Name:</h3>
+        <div class="device-name-container">
+            <div id="deviceNameText">{{ device_name }}</div>
+            <span id="editDeviceName">✏️</span>
+        </div>
+
+        <h2>Upload Media</h2>
+        <div class="form-container">
+            <h3>Upload an image</h3>
+            <input type="file" id="imageUpload" accept="image/*">
+
+            <h3>Or provide an image URL</h3>
+            <input type="text" id="imageUrl" placeholder="Enter image URL">
+            <button onclick="addImageFromUrl()">Add Image</button>
+        </div>
+
+        <h2>Slideshow Controls</h2>
+        <div class="controls">
+            <button onclick="previousSlide()">Previous</button>
+            <button onclick="nextSlide()">Next</button>
+            <button onclick="deleteCurrentSlide()">Delete Current</button>
+            <button onclick="quitSlideshow()">Quit Slideshow</button>
+        </div>
+
+        <h2>MQTT Configuration</h2>
+        <div class="controls">
+            <input type="text" id="mqttBroker" placeholder="Broker">
+            <input type="number" id="mqttPort" placeholder="Port">
+            <input type="text" id="mqttTopic" placeholder="Topic">
+            <button onclick="connectMQTT()">Connect</button>
+
+            <div id="mqttStatus">
+                Connection Status: 
+                <span id="mqttConnectionStatus" class="{{ 'status-connected' if mqtt_connected else 'status-disconnected' }}">
+                    {{ 'Connected' if mqtt_connected else 'Disconnected' }}
+                </span>
+            </div>
+        </div>
+
+        <h2>Gallery</h2>
+        <div id="gallery" class="gallery">
+            <!-- Gallery items will be dynamically added here -->
+        </div>
+    </div>
+
+    <script>
+        // Simulated data
+        let deviceName = "My Digital Canvas";
+        let mqttConnected = false;
+        let galleryItems = [];
+
+        // Update device name
+        document.getElementById('deviceNameText').textContent = deviceName;
+        document.getElementById('editDeviceName').addEventListener('click', function() {
+            const newName = prompt("Enter new device name:", deviceName);
+            if (newName) {
+                deviceName = newName;
+                document.getElementById('deviceNameText').textContent = deviceName;
+            }
+        });
+
+        // Image upload handling
+        document.getElementById('imageUpload').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    addImageToGallery(e.target.result, file.name);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function addImageFromUrl() {
+            const url = document.getElementById('imageUrl').value;
+            if (url) {
+                addImageToGallery(url, 'URL Image');
+                document.getElementById('imageUrl').value = '';
+            }
+        }
+
+        function addImageToGallery(src, name) {
+            galleryItems.push({ src, name });
+            updateGallery();
+        }
+
+        function updateGallery() {
+            const gallery = document.getElementById('gallery');
+            gallery.innerHTML = '';
+            galleryItems.forEach((item, index) => {
+                const galleryItem = document.createElement('div');
+                galleryItem.className = 'gallery-item';
+                galleryItem.innerHTML = `
+                    <img src="${item.src}" alt="${item.name}">
+                    <div class="info">
+                        <p>${item.name}</p>
+                        <div class="actions">
+                            <button onclick="selectFile(${index})">Select</button>
+                            <button onclick="deleteFile(${index})">Delete</button>
+                        </div>
+                    </div>
+                `;
+                gallery.appendChild(galleryItem);
+            });
+        }
+
+        function selectFile(index) {
+            alert(`Selected file: ${galleryItems[index].name}`);
+        }
+
+        function deleteFile(index) {
+            galleryItems.splice(index, 1);
+            updateGallery();
+        }
+
+        // Slideshow controls (placeholder functions)
+        function previousSlide() {
+            alert("Previous slide");
+        }
+
+        function nextSlide() {
+            alert("Next slide");
+        }
+
+        function deleteCurrentSlide() {
+            alert("Delete current slide");
+        }
+
+        function quitSlideshow() {
+            alert("Quit slideshow");
+        }
+
+        // MQTT connection (placeholder function)
+        function connectMQTT() {
+            const broker = document.getElementById('mqttBroker').value;
+            const port = document.getElementById('mqttPort').value;
+            const topic = document.getElementById('mqttTopic').value;
+
+            // Simulating connection
+            mqttConnected = !mqttConnected;
+            updateMQTTStatus();
+
+            alert(`Connecting to MQTT:\nBroker: ${broker}\nPort: ${port}\nTopic: ${topic}`);
+        }
+
+        function updateMQTTStatus() {
+            const statusElement = document.getElementById('mqttConnectionStatus');
+            statusElement.textContent = mqttConnected ? 'Connected' : 'Disconnected';
+            statusElement.className = mqttConnected ? 'status-connected' : 'status-disconnected';
+        }
+
+        // Initial update
+        updateMQTTStatus();
+    </script>
+</body>
+</html>

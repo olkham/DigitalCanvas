@@ -1,0 +1,124 @@
+{
+    "event": "media.play",
+    "user": false,
+    "owner": true,
+    "Account": {
+        "id": 0,
+        "thumb": "",
+        "title": ""
+    },
+    "Server": {
+        "title": "Frigg",
+        "uuid": "d6a3794e53601bcae9806939d8385c898e022369"
+    },
+    "Player": {
+        "local": true,
+        "publicAddress": "86.176.9.81",
+        "title": "Chrome",
+        "uuid": "vujz4juxcw6ux76596ruyhtf"
+    },
+    "Metadata": {
+        "librarySectionType": "show",
+        "ratingKey": "4891",
+        "key": "/library/metadata/4891",
+        "parentRatingKey": "4888",
+        "grandparentRatingKey": "4887",
+        "guid": "plex:/episode/6566354f5166fe586728f8c7",
+        "parentGuid": "plex:/season/6566354f5166fe586728f8c0",
+        "grandparentGuid": "plex:/show/65583a3d402baf6cdd8d19c5",
+        "grandparentSlug": "douglas-is-cancelled",
+        "type": "episode",
+        "title": "Episode 2",
+        "grandparentTitle": "Douglas Is Cancelled",
+        "parentTitle": "Season 1",
+        "summary": "When the furore around the joke continues to mount, Douglas needs to be coached on handling the questions he faces.",
+        "index": 2,
+        "parentIndex": 1,
+        "year": 2024,
+        "thumb": "/library/metadata/4891/thumb/1720490615",
+        "art": "/library/metadata/4887/art/1721959875",
+        "parentThumb": "/library/metadata/4888/thumb/1721446333",
+        "grandparentThumb": "/library/metadata/4887/thumb/1721959875",
+        "grandparentArt": "/library/metadata/4887/art/1721959875",
+        "duration": 2460000,
+        "originallyAvailableAt": "2024-07-04",
+        "addedAt": 1720482514,
+        "updatedAt": 1720490615,
+        "chapterSource": "media",
+        "Guid": [
+            {
+                "id": "tmdb:/4955443"
+            }
+        ],
+        "Role": [
+            {
+                "id": 19649,
+                "tag": "Hugh Bonneville",
+                "tagKey": "5d7768263c3c2a001fbcaff7",
+                "role": "Douglas",
+                "thumb": "https:/metadata-static.plex.tv/c/people/c56800ffa95b93593e588ad60a976943.jpg"
+            },
+            {
+                "id": 4573,
+                "tag": "Karen Gillan",
+                "tagKey": "5d77684b5af944001f1fe33a",
+                "role": "Madeline",
+                "thumb": "https:/metadata-static.plex.tv/7/people/7c9912f1f407e6bd4be7bb5ed2255d85.jpg"
+            },
+            {
+                "id": 8177,
+                "tag": "Ben Miles",
+                "tagKey": "5d776828151a60001f24ae6d",
+                "role": "Toby",
+                "thumb": "https:/metadata-static.plex.tv/1/people/1f3274842266e930c2c775340f9db706.jpg"
+            },
+            {
+                "id": 26373,
+                "tag": "Alex Kingston",
+                "tagKey": "5d77683161141d001fb14be4",
+                "role": "Sheila",
+                "thumb": "https:/metadata-static.plex.tv/b/people/b125e4cb0265d84f8832bb2d167d06fb.jpg"
+            },
+            {
+                "id": 851,
+                "tag": "Nick Mohammed",
+                "tagKey": "5d7768f996b655001fdc6bf0",
+                "role": "Morgan",
+                "thumb": "https:/metadata-static.plex.tv/7/people/7c15d46e870e269055c9960841d67415.jpg"
+            },
+            {
+                "id": 39848,
+                "tag": "Madeleine Power",
+                "tagKey": "632402d055d42bebe822a9ba",
+                "role": "Claudia",
+                "thumb": "https:/image.tmdb.org/t/p/original/rCeLenCpXPvRk9coMZ9jLkUSK7.jpg"
+            },
+            {
+                "id": 36702,
+                "tag": "Simon Russell Beale",
+                "tagKey": "5d776833103a2d001f5672c1",
+                "role": "Bently",
+                "thumb": "https:/metadata-static.plex.tv/8/people/86ad9b82cebeceed614b6c3bf09a9baa.jpg"
+            },
+            {
+                "id": 876,
+                "tag": "Joe Wilkinson",
+                "tagKey": "5d776b9ffb0d55001f56da5c"
+            },
+            {
+                "id": 876,
+                "tag": "Joe Wilkinson",
+                "tagKey": "5d776b9ffb0d55001f56da5c",
+                "role": "Tom",
+                "thumb": "https:/metadata-static.plex.tv/people/5d776b9ffb0d55001f56da5c.jpg"
+            },
+            {
+                "id": 39849,
+                "tag": "Ramanique Ahluwalia",
+                "tagKey": "632491ce72d064720ff45ab2",
+                "role": "Jenn",
+                "thumb": "https:/metadata-static.plex.tv/d/people/d86aa8489e724a6ef5b5914e76314b7c.jpg"
+            }
+        ]
+    }
+}

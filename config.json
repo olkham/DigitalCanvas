@@ -1,0 +1,15 @@
+{
+    "frame_interval": 5,
+    "transition_duration": 1,
+    "orientation": "both",
+    "display_mode": "windowed",
+    "web_interface_port": 7000,
+    "mqtt_broker": "192.168.1.138",
+    "mqtt_port": "1883",
+    "mqtt_topic": "1/office/canvas-big",
+    "device_name": "office-canvas",
+    "theme": "dark-theme",
+    "rotation": 0,
+    "scale_mode": "fit",
+    "plex_port": 32400
+}
