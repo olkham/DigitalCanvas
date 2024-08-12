@@ -1,5 +1,5 @@
 {
-    "frame_interval": 5,
+    "frame_interval": 10,
     "transition_duration": 1,
     "orientation": "both",
     "display_mode": "windowed",

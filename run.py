@@ -287,7 +287,15 @@ class CombinedApp:
                 brightness = request.form.get('brightness')
                 
                 if brightness is not None:
-                    self.monitor_controller.set_luminance(int(brightness))
+                    if brightness >= 0 and brightness <= 100:
+                        self.slideshow_manager.auto_brightness = False
+                        self.config_manager.update_parameter('auto_brightness', False)
+                        brightness = int(brightness)
+                        self.monitor_controller.set_luminance(brightness)
+                    elif brightness == -1:
+                        self.slideshow_manager.auto_brightness = True
+                        self.config_manager.update_parameter('auto_brightness', True)
+
                 
                 if rotation is not None:
                     rotation = int(rotation)

@@ -24,7 +24,8 @@ class ConfigManager:
             'theme': 'dark-theme',                                          #light-theme, dark-theme
             'rotation': 0,                                                  #0, 90, 180, 270
             "scale_mode": "fit",                                            #fill, fit
-            "plex_port": 32400                                              #plex server port, default 32400 where to fetch art from
+            "plex_port": 32400,                                             #plex server port, default 32400 where to fetch art from
+            "auto_brightness": False,                                       #auto brightness adjustment
         }
         return default_config
 

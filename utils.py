@@ -253,7 +253,7 @@ def accel_to_orientation(self, accel):
 
 def luminance_to_brightness(self, luminance):
     brightness = (luminance / (2**16)) * 100
-    return brightness
+    return int(brightness)
 
 def check_os():
     if platform.system() == "Windows":

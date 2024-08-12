@@ -47,7 +47,7 @@ class ImageViewer:
         
         self.current_image_index = -1   #start at -1 so that the first image will be 0
         self.slideshow_active = True
-        self.transition_frames = 60
+        self.transition_frames = 1
 
         self.transition_duration = transition_duration
         self.transition_step = 0
