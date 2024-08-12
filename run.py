@@ -81,7 +81,10 @@ class CombinedApp:
                                                   orientation=self.config_manager.config['orientation'],
                                                   display_mode=self.config_manager.config['display_mode'],
                                                   rotation=self.config_manager.config['rotation'],
-                                                  scale_mode=self.config_manager.config['scale_mode'])
+                                                  scale_mode=self.config_manager.config['scale_mode'],
+                                                  auto_rotate=True,
+                                                  auto_brightness=True
+                                                  )
         self.slideshow_manager.set_image_selection_queue(self.image_selection_queue)
         self.slideshow_manager.image_change_callback = self.publish_current_image
 
@@ -284,7 +287,7 @@ class CombinedApp:
                 orientation = request.form.get('orientation')
                 scale_mode = request.form.get('scale_mode')
                 rotation = request.form.get('rotation')
-                brightness = request.form.get('brightness')
+                brightness = int(request.form.get('brightness'))
                 
                 if brightness is not None:
                     if brightness >= 0 and brightness <= 100:
@@ -425,18 +428,24 @@ class CombinedApp:
         os.system("sudo reboot")
         
     def monitor_sensor(self):
+        previous_orientation = None
+        previous_brightness = None
         while True:
             if self.slideshow_manager.auto_rotate:
                 accel = self.sensor_reader.read_bmi160_accel()
                 orientation = accel_to_orientation(accel)
-                self.slideshow_manager.update_parameters(orientation=orientation)
+                if orientation != previous_orientation:
+                    self.slideshow_manager.update_parameters(orientation=orientation)
+                    previous_orientation = orientation
 
             if self.slideshow_manager.auto_brightness:
                 luminance = self.sensor_reader.read_veml7700_light()
-                brightness = luminance_to_brightness(luminance)
-                self.monitor_controller.set_luminance(brightness)
+                brightness = luminance_to_brightness(luminance, max_value=2000)
+                if brightness != previous_brightness:
+                    self.monitor_controller.set_luminance(brightness)
+                    previous_brightness = brightness
 
-            time.sleep(1)
+            time.sleep(0.1)
             
 
 

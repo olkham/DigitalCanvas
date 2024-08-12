@@ -245,14 +245,25 @@ def strtobool (val):
     else:
         raise ValueError("invalid truth value %r" % (val,))
     
-def accel_to_orientation(self, accel):
-    x, y, z = accel
-    if abs(x) > abs(y):
+def accel_to_orientation(accel):
+    # x, y, z = accel
+    # print(f'x: {x}, y: {y}, z: {z}')
+    if abs(accel['ax']) > abs(accel['ay']):
         return 'landscape'
     return 'portrait'
 
-def luminance_to_brightness(self, luminance):
-    brightness = (luminance / (2**16)) * 100
+def clamp(value, min_value, max_value):
+    return max(min(value, max_value), min_value)
+
+def rescale_brightness(brightness, min_value=0, max_value=100):
+    return int((brightness / 100) * (max_value - min_value) + min_value)
+
+def rescale_luminance(luminance, min_value=300, max_value=2000):
+    return int((luminance / 100) * (max_value - min_value) + min_value)
+
+def luminance_to_brightness(luminance, min_value=300, max_value=2000):
+    brightness = (rescale_luminance(luminance, min_value, max_value) / max_value) * 100
+    brightness = clamp(brightness, 0, 100)
     return int(brightness)
 
 def check_os():

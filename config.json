@@ -11,5 +11,7 @@
     "theme": "dark-theme",
     "rotation": 0,
     "scale_mode": "fit",
-    "plex_port": 32400
+    "plex_port": 32400,
+    "auto_brightness": true,
+    "auto_rotate": true
 }

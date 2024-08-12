@@ -25,7 +25,8 @@ class ConfigManager:
             'rotation': 0,                                                  #0, 90, 180, 270
             "scale_mode": "fit",                                            #fill, fit
             "plex_port": 32400,                                             #plex server port, default 32400 where to fetch art from
-            "auto_brightness": False,                                       #auto brightness adjustment
+            "auto_brightness": True,                                       #auto brightness adjustment
+            "auto_rotate": True,                                           #auto rotation
         }
         return default_config
 

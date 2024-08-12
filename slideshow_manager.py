@@ -8,7 +8,9 @@ class SlideshowManager:
                  orientation="landscape", 
                  display_mode="fullscreen",
                  rotation=0,
-                 scale_mode="fill"):
+                 scale_mode="fill",
+                 auto_rotate=False,
+                 auto_brightness=False):
         self.folder = folder
         self.frame_interval = frame_interval
         self.transition_duration = transition_duration
@@ -21,8 +23,8 @@ class SlideshowManager:
         self.image_selection_queue = None
         self.image_change_callback = None
         
-        self.auto_rotate = False
-        self.auto_brightness = False
+        self.auto_rotate = auto_rotate
+        self.auto_brightness = auto_brightness
 
     def update_parameters(self, 
                           frame_interval=None, 
