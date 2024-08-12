@@ -18,12 +18,10 @@ from monitor_controller import MonitorController
 from sensors2 import SensorReader
 # todo
 #1 add option for random image selection or sequential
-#2 read from light sensor to adjust brightness - done
-#3 read from accelerometer to adjust orientation - done
 #5 improve performance of the portraint/landscape icon on the gallery view
 #6 add indication to gallery view of the cuurent portrait/landscape setting being applied
 #7 build in the clock map
-#8 add another tk element to the gallery view to show the current time      
+#8 add another tk element to the gallery view to show the current time
 
 
 
