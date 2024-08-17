@@ -1,17 +1,18 @@
 {
     "frame_interval": 10,
     "transition_duration": 1,
-    "orientation": "both",
+    "media_orientation_filter": "both",
     "display_mode": "windowed",
     "web_interface_port": 7000,
     "mqtt_broker": "192.168.1.138",
-    "mqtt_port": "1883",
+    "mqtt_port": 1883,
     "mqtt_topic": "1/office/canvas-big",
     "device_name": "office-canvas",
     "theme": "dark-theme",
     "rotation": 0,
-    "scale_mode": "fit",
+    "scale_mode": "fill",
     "plex_port": 32400,
-    "auto_brightness": true,
-    "auto_rotate": true
+    "allow_plex": true,
+    "auto_brightness": false,
+    "auto_rotation": false
 }

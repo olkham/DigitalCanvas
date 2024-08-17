@@ -1,5 +1,4 @@
 import os
-import platform
 import threading
 from queue import Queue
 import time
@@ -9,17 +8,20 @@ from config_manager import ConfigManager
 from slideshow_manager import SlideshowManager
 import paho.mqtt.client as mqtt
 
-from PIL import Image
-import io
+import cv2
+import numpy as np
 import base64
-import subprocess
 
 from monitor_controller import MonitorController
 from sensors2 import SensorReader
+
+# import logging
+# log = logging.getLogger('werkzeug')
+# log.setLevel(logging.ERROR)
+
 # todo
 #1 add option for random image selection or sequential
 #5 improve performance of the portraint/landscape icon on the gallery view
-#6 add indication to gallery view of the cuurent portrait/landscape setting being applied
 #7 build in the clock map
 #8 add another tk element to the gallery view to show the current time
 
@@ -29,7 +31,6 @@ class API:
     """
     List of the endpoints for the API
     """
-    
     home_url = f'/'
     display_now = f'/display_now'
     upload = f'/uploads/<filename>'
@@ -41,7 +42,6 @@ class API:
     current_image_name = f'/current_image_name'
     current_image = f'/current_image'   #we can also use current_image_name and the /uploads/<filename> endpoint to get the image
     
-    
     configure_mqtt = f'/configure/mqtt'
     configure_app = f'/configure/app'
     configure_display = f'/configure/display'
@@ -52,8 +52,7 @@ class API:
     slideshow_delete = f'/slideshow/delete'
     slideshow_quit = f'/slideshow/quit'
     
-    # control_screen = f'/control_screen'
-    
+    configure_plex = f'/configure/plex'
     plex_hook = f'/plex_hook'
     
     shutdown = f'/shutdown'
@@ -62,9 +61,9 @@ class API:
 class CombinedApp:
     def __init__(self, config_manager: dict):
         self.config_manager = config_manager
+        self.mqtt_client = None
         
         self.app = Flask(__name__)
-
         self.app.config['UPLOAD_FOLDER'] = 'images'
         self.app.config['THUMBNAIL_FOLDER'] = 'thumbnails'
 
@@ -72,17 +71,10 @@ class CombinedApp:
         check_and_create(self.app.config['THUMBNAIL_FOLDER'])
         create_thumbnails_for_existing_images(self.app.config['UPLOAD_FOLDER'], self.app.config['THUMBNAIL_FOLDER'])
 
-        self.image_selection_queue = Queue()
         self.slideshow_manager = SlideshowManager(os.path.join(os.path.dirname(os.path.abspath(__file__)), "images"),
-                                                  frame_interval=self.config_manager.config['frame_interval'],
-                                                  transition_duration=self.config_manager.config['transition_duration'],
-                                                  orientation=self.config_manager.config['orientation'],
-                                                  display_mode=self.config_manager.config['display_mode'],
-                                                  rotation=self.config_manager.config['rotation'],
-                                                  scale_mode=self.config_manager.config['scale_mode'],
-                                                  auto_rotate=True,
-                                                  auto_brightness=True
-                                                  )
+                                                  config_manager=self.config_manager)
+        
+        self.image_selection_queue = Queue()
         self.slideshow_manager.set_image_selection_queue(self.image_selection_queue)
         self.slideshow_manager.image_change_callback = self.publish_current_image
 
@@ -92,9 +84,13 @@ class CombinedApp:
         self.monitor_controller = MonitorController()
         self.sensor_reader = SensorReader()
 
-
     def setup_mqtt_client(self):
         try:
+            if self.mqtt_client is not None:
+                self.mqtt_client.loop_stop()
+                self.mqtt_client.disconnect()
+                self.mqtt_client = None
+            
             self.mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
             self.mqtt_client.on_connect = self.on_mqtt_connect
             self.mqtt_client.on_message = self.on_mqtt_message
@@ -138,7 +134,6 @@ class CombinedApp:
         if current_image:
             self.publish_mqtt_message(f"{self.config_manager.config['mqtt_topic']}/current_image", current_image)
 
-
     def setup_flask_routes(self):
 
         @self.app.route(API.home_url, methods=['GET', 'POST'])
@@ -165,32 +160,37 @@ class CombinedApp:
             # Get the list of files in the upload folder
             files = os.listdir(self.app.config['UPLOAD_FOLDER'])
             
-            # Filter the files based on the orientation setting
-            if self.config_manager.config['orientation'] == 'portrait':
+            # Filter the files based on the media_orientation_filter setting
+            if self.config_manager.config['media_orientation_filter'] == 'portrait':
                 files = [f for f in files if is_portrait(os.path.join(self.app.config['UPLOAD_FOLDER'], f))]
-            elif self.config_manager.config['orientation'] == 'landscape':
+            elif self.config_manager.config['media_orientation_filter'] == 'landscape':
                 files = [f for f in files if is_landscape(os.path.join(self.app.config['UPLOAD_FOLDER'], f))]
-
+                
             # render the page
-            return render_template('index8.html', 
-                                   files=files,
-                                   device_name=self.config_manager.config['device_name'], 
-                                   mqtt_broker=self.config_manager.config['mqtt_broker'], 
-                                   mqtt_port=self.config_manager.config['mqtt_port'], 
-                                   mqtt_topic=self.config_manager.config['mqtt_topic'], 
-                                   mqtt_connected=self.mqtt_connected,
-                                   transition_duration= self.config_manager.config['transition_duration'],
-                                   frame_interval= self.config_manager.config['frame_interval'],
-                                   orientation= self.config_manager.config['orientation'],
-                                   display_mode= self.config_manager.config['display_mode'],
-                                   selected_theme= self.config_manager.config['theme'],
-                                   rotation= self.config_manager.config['rotation'],
-                                   scale_mode= self.config_manager.config['scale_mode'],
-                                   power_state=self.monitor_controller.get_power_mode(),
-                                   auto_brightness=False,
-                                   current_brightness=self.monitor_controller.get_luminance(),
-                                   slideshow_running=self.slideshow_manager.is_running(),
-                                )
+            params = {
+                'files': files,
+                'device_name': self.config_manager.config['device_name'],
+                'mqtt_broker': self.config_manager.config['mqtt_broker'],
+                'mqtt_port': self.config_manager.config['mqtt_port'],
+                'mqtt_topic': self.config_manager.config['mqtt_topic'],
+                'mqtt_connected': self.mqtt_connected,
+                'transition_duration': self.config_manager.config['transition_duration'],
+                'frame_interval': self.config_manager.config['frame_interval'],
+                'media_orientation_filter': self.config_manager.config['media_orientation_filter'],
+                'display_mode': self.config_manager.config['display_mode'],
+                'selected_theme': self.config_manager.config['theme'],
+                'rotation': self.config_manager.config['rotation'],
+                'scale_mode': self.config_manager.config['scale_mode'],
+                'power_state': self.monitor_controller.get_power_mode(),
+                'plex_port': self.config_manager.config['plex_port'],
+                'allow_plex': self.config_manager.config['allow_plex'],
+                'auto_brightness': self.config_manager.config['auto_brightness'],
+                'auto_rotation': self.config_manager.config['auto_rotation'],
+                'current_brightness': self.monitor_controller.get_luminance(),
+                'slideshow_running': self.slideshow_manager.is_running(),
+            }
+            
+            return render_template('index8.html', **params)
 
         @self.app.route(API.display_now, methods=['POST'])
         def display_now():
@@ -199,11 +199,15 @@ class CombinedApp:
             '''
             base64_image = None
             if 'file' in request.files and request.files['file'].filename != '':
-                file_data = request.files['file'].read()
-                image = Image.open(io.BytesIO(file_data))
-                buffered = io.BytesIO()
-                image.save(buffered, format="JPEG")
-                base64_image = base64.b64encode(buffered.getvalue()).decode('utf-8')
+                file = request.files['file']
+                image = cv2.imdecode(np.frombuffer(file.read(), np.uint8), cv2.IMREAD_COLOR)
+                base64_image = base64.b64encode(cv2.imencode('.jpg', image)[1]).decode()
+            # if 'file' in request.files and request.files['file'].filename != '':
+            #     file_data = request.files['file'].read()
+            #     image = Image.open(io.BytesIO(file_data))
+            #     buffered = io.BytesIO()
+            #     image.save(buffered, format="JPEG")
+            #     base64_image = base64.b64encode(buffered.getvalue()).decode('utf-8')
             elif 'image' in request.form:
                 base64_image = request.form['image']
                 
@@ -252,6 +256,7 @@ class CombinedApp:
 
             file_path = os.path.join(self.app.config['UPLOAD_FOLDER'], filename)
             if os.path.exists(file_path):
+                print(f"Selecting image {filename} at {time.time()}")
                 self.image_selection_queue.put(filename)
             return '', 204
         
@@ -263,7 +268,7 @@ class CombinedApp:
         @self.app.route(API.configure_mqtt, methods=['POST'])
         def configure_mqtt():
             mqtt_broker = request.form.get('mqtt_broker')
-            mqtt_port = request.form.get('mqtt_port')
+            mqtt_port = int(request.form.get('mqtt_port') or -1)
             mqtt_topic = request.form.get('mqtt_topic')
             self.config_manager.update_parameter('mqtt_broker', mqtt_broker)
             self.config_manager.update_parameter('mqtt_port', mqtt_port)
@@ -282,12 +287,13 @@ class CombinedApp:
             if request.method == 'POST':
                 # Handle display configuration
                 display_mode = request.form.get('display_mode')
-                orientation = request.form.get('orientation')
+                media_orientation_filter = request.form.get('media_orientation_filter')
                 scale_mode = request.form.get('scale_mode')
                 rotation = request.form.get('rotation')
-                brightness = int(request.form.get('brightness'))
+                brightness = request.form.get('brightness')
                 
                 if brightness is not None:
+                    brightness = int(brightness)
                     if brightness >= 0 and brightness <= 100:
                         self.slideshow_manager.auto_brightness = False
                         self.config_manager.update_parameter('auto_brightness', False)
@@ -300,28 +306,32 @@ class CombinedApp:
                 
                 if rotation is not None:
                     rotation = int(rotation)
+                    if rotation < 0:
+                        self.config_manager.update_parameter('auto_rotation', True)
+                    else:
+                        self.config_manager.update_parameter('auto_rotation', False)
                 
-                self.config_manager.update_parameter('orientation', orientation)
+                self.config_manager.update_parameter('media_orientation_filter', media_orientation_filter)
                 self.config_manager.update_parameter('display_mode', display_mode)
                 self.config_manager.update_parameter('rotation', rotation)
                 self.config_manager.update_parameter('scale_mode', scale_mode)
-                self.slideshow_manager.update_parameters(orientation=orientation, 
+                self.slideshow_manager.update_parameters(media_orientation_filter=media_orientation_filter, 
                                                         display_mode=display_mode, 
                                                         rotation=rotation,
                                                         scale_mode=scale_mode)
 
                 # Handle screen control
-                action = request.form.get('power')
-                if action is not None:
-                    if action == 'on':
+                display_power_action = request.form.get('power')
+                if display_power_action is not None:
+                    if display_power_action == 'on':
                         self.monitor_controller.set_power_mode('on')
                         return jsonify(success=True)
-                    elif action == 'off':
+                    elif display_power_action == 'off':
                         self.monitor_controller.set_power_mode('off')
                         return jsonify(success=True)
                 
                 # if the oreintation is changed, we need to refresh the page to update the gallery view
-                if orientation is not None:
+                if media_orientation_filter is not None:
                     return redirect(url_for('index'))
 
                 return "", 204
@@ -372,21 +382,58 @@ class CombinedApp:
             self.slideshow_manager.quit_slideshow()
             return redirect(url_for('index'))
 
+        @self.app.route(API.configure_plex, methods=['POST'])
+        def configure_plex():
+            plex_port = int(request.form.get('plex_port') or -1)
+            allow_plex = strtobool(request.form.get('allow_plex'))
+            self.config_manager.update_parameter('plex_port', plex_port)
+            self.config_manager.update_parameter('allow_plex', allow_plex)
+            return redirect(url_for('index'))
+
         @self.app.route(API.plex_hook, methods=['POST'])
         def plex_hook():
-            payload = request.form['payload']
-            payload = json.loads(payload)
-            if payload['event'] == 'media.play' or payload['event'] == 'media.resume':
-                thumb_url = get_thumbnail(payload)
-                if thumb_url is not None:
-                    image_url = f"http://{request.access_route[0]}:{self.config_manager.config['plex_port']}{thumb_url}.jpg"
-                    image = read_image_from_url(image_url)
-                    self.slideshow_manager.pause_slideshow()
-                    self.slideshow_manager.set_image(image, 1)
-            elif payload['event'] == 'media.stop' or payload['event'] == 'media.pause':
-                self.slideshow_manager.resume_slideshow()
+            if self.config_manager['allow_plex']:
+                payload = request.form['payload']
+                payload = json.loads(payload)
+                if payload['event'] == 'media.play' or payload['event'] == 'media.resume':
+                    thumb_url = get_thumbnail(payload)
+                    if thumb_url is not None:
+                        image_url = f"http://{request.access_route[0]}:{self.config_manager.config['plex_port']}{thumb_url}.jpg"
+                        try:
+                            image = read_image_from_url(image_url)
+                            self.slideshow_manager.pause_slideshow()
+                            self.slideshow_manager.set_image(image, 1)
+                        except:
+                            print(f"Failed to fetch image from Plex server on port {self.config_manager.config['plex_port']}")
+                            print("Disabling Plex server integration")
+                            self.config_manager.update_parameter('allow_plex', False)
+                            return '', 404
+
+                elif payload['event'] == 'media.stop' or payload['event'] == 'media.pause':
+                    self.slideshow_manager.resume_slideshow()
+                return '', 204
             return '', 204
 
+    def monitor_sensor(self):
+        previous_media_orientation_filter = None
+        previous_brightness = None
+
+        while True:
+            if self.slideshow_manager.auto_rotate:
+                accel = self.sensor_reader.read_bmi160_accel()
+                media_orientation_filter = accel_to_orientation(accel)
+                if media_orientation_filter != previous_media_orientation_filter:
+                    self.slideshow_manager.update_parameters(media_orientation_filter=media_orientation_filter)
+                    previous_media_orientation_filter = media_orientation_filter
+
+            if self.slideshow_manager.auto_brightness:
+                luminance = self.sensor_reader.read_veml7700_light()
+                brightness = luminance_to_brightness(luminance, max_value=2000)
+                if brightness != previous_brightness:
+                    self.monitor_controller.set_luminance(brightness)
+                    previous_brightness = brightness
+            
+            time.sleep(1)
 
     def run_flask(self):
         self.app.run(host='0.0.0.0', port=self.config_manager.config['web_interface_port'], debug=False, use_reloader=False)
@@ -425,27 +472,6 @@ class CombinedApp:
         self.sensor_reader.stop()
         os.system("sudo reboot")
         
-    def monitor_sensor(self):
-        previous_orientation = None
-        previous_brightness = None
-        while True:
-            if self.slideshow_manager.auto_rotate:
-                accel = self.sensor_reader.read_bmi160_accel()
-                orientation = accel_to_orientation(accel)
-                if orientation != previous_orientation:
-                    self.slideshow_manager.update_parameters(orientation=orientation)
-                    previous_orientation = orientation
-
-            if self.slideshow_manager.auto_brightness:
-                luminance = self.sensor_reader.read_veml7700_light()
-                brightness = luminance_to_brightness(luminance, max_value=2000)
-                if brightness != previous_brightness:
-                    self.monitor_controller.set_luminance(brightness)
-                    previous_brightness = brightness
-
-            time.sleep(0.1)
-            
-
 
 if __name__ == '__main__':
     config_manager = ConfigManager('config.json')   

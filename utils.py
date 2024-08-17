@@ -1,5 +1,7 @@
 import os
 from PIL import Image
+import cv2
+import numpy as np
 import requests
 from io import BytesIO
 import subprocess
@@ -169,6 +171,88 @@ def crop_center(image, size):
     bottom = (height + new_height) // 2
     return image.crop((left, top, right, bottom))
 
+def cv2_crop_center(image, size):
+    '''
+    Crop the image to the specified size by taking a center crop.
+    If the crop size is larger than the original image, expand the image to fill the target size with black pixels.
+    '''
+    height, width = image.shape[:2]
+    new_height, new_width = size[:2]
+    
+    if new_height > height or new_width > width:
+        # Create a new black image with the target size
+        result = np.zeros((new_height, new_width, 3), dtype=np.uint8)
+        
+        # Calculate the coordinates to place the original image in the center
+        left = (new_width - width) // 2
+        top = (new_height - height) // 2
+        right = left + width
+        bottom = top + height
+        
+        # Place the original image in the center of the black image
+        result[top:bottom, left:right] = image
+        return result
+    else:
+        # Calculate the coordinates for the center crop
+        left = (width - new_width) // 2
+        top = (height - new_height) // 2
+        right = left + new_width
+        bottom = top + new_height
+        return image[top:bottom, left:right]
+
+
+def quick_read_image(image_path):
+    return cv2.cvtColor(np.array(Image.open(image_path)), cv2.COLOR_RGB2BGR)
+
+def cv2_to_pil(cv2_img):
+    '''Convert OpenCV image (numpy.ndarray) to PIL Image.'''
+    cv2_img_rgb = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB)
+    pil_img = Image.fromarray(cv2_img_rgb)
+    return pil_img
+
+def cv2_rotate_image(image, angle):
+    '''
+    Rotate the image by the specified angle and adjust the dimensions accordingly.
+    '''
+    if angle == 0:
+        return image
+    
+    if angle == 90:
+        # Rotate 90 degrees: transpose and then flip horizontally
+        rotated_image = cv2.transpose(image)
+        rotated_image = cv2.flip(rotated_image, 1)
+    elif angle == 180:
+        # Rotate 180 degrees: flip both horizontally and vertically
+        rotated_image = cv2.flip(image, -1)
+    elif angle == 270:
+        # Rotate 270 degrees: transpose and then flip vertically
+        rotated_image = cv2.transpose(image)
+        rotated_image = cv2.flip(rotated_image, 0)
+    else:
+        # For other angles, use the affine transformation
+        (h, w) = image.shape[:2]
+        center = (w // 2, h // 2)
+        
+        # Calculate the rotation matrix
+        M = cv2.getRotationMatrix2D(center, angle, 1.0)
+        
+        # Calculate the new bounding dimensions of the image
+        cos = np.abs(M[0, 0])
+        sin = np.abs(M[0, 1])
+        
+        new_w = int((h * sin) + (w * cos))
+        new_h = int((h * cos) + (w * sin))
+        
+        # Adjust the rotation matrix to account for the new dimensions
+        M[0, 2] += (new_w / 2) - center[0]
+        M[1, 2] += (new_h / 2) - center[1]
+        
+        # Perform the affine transformation
+        rotated_image = cv2.warpAffine(image, M, (new_w, new_h))
+    
+    return rotated_image
+
+
 #function to resize the image to resize to a target size using two options: fill or fit
 #fill: resize the image to fill the target size and crop the excess
 #fit: resize the image to fit the target size and keep the aspect ratio
@@ -205,12 +289,61 @@ def resize_to_target(src_image, target_image, resize_option):
         return resized_image.crop((left, top, right, bottom))
     else:
         return resized_image
+
+def cv_resize_to_target(src_image, target_image, resize_option):
+    # src_image = cv2.imread(src_image_path)
+    # target_image = cv2.imread(target_image_path)
     
+    if src_image is None or target_image is None:
+        raise ValueError("One or both images not found or unable to read")
+
+    image_height, image_width = src_image.shape[:2]
+    target_height, target_width = target_image.shape[:2]
+    
+    image_aspect = image_width / image_height
+    target_aspect = target_width / target_height
+
+    if resize_option == 'fill':
+        if image_aspect > target_aspect:
+            new_height = target_height
+            new_width = int(new_height * image_aspect)
+        else:
+            new_width = target_width
+            new_height = int(new_width / image_aspect)
+    elif resize_option == 'fit':
+        if image_aspect > target_aspect:
+            new_width = target_width
+            new_height = int(new_width / image_aspect)
+        else:
+            new_height = target_height
+            new_width = int(new_height * image_aspect)
+    else:
+        raise ValueError("Invalid resize option. Use 'fill' or 'fit'.")
+
+    resized_image = cv2.resize(src_image, (new_width, new_height), interpolation=cv2.INTER_LANCZOS4)
+
+    if resize_option == 'fill':
+        left = (new_width - target_width) // 2
+        top = (new_height - target_height) // 2
+        right = left + target_width
+        bottom = top + target_height
+        cropped_image = resized_image[top:bottom, left:right]
+        return cropped_image
+    else:
+        return resized_image
+
+def pil_to_cv2(pil_img):
+    '''Convert PIL Image to OpenCV image (numpy.ndarray).'''
+    cv2_img = np.array(pil_img)
+    cv2_img = cv2.cvtColor(cv2_img, cv2.COLOR_RGB2BGR)
+    return cv2_img
+
 #read an image as PIL Image from a URL
 def read_image_from_url(image_url):
     response = requests.get(image_url)
     image = Image.open(BytesIO(response.content))
-    return image
+    return pil_to_cv2(image)
+    # return image
 
 def get_thumbnail(json_data):
     metadata = json_data.get('Metadata', {})
@@ -239,9 +372,9 @@ def strtobool (val):
     
     val = val.lower()
     if val in ('y', 'yes', 't', 'true', 'on', '1'):
-        return 1
+        return True
     elif val in ('n', 'no', 'f', 'false', 'off', '0'):
-        return 0
+        return False
     else:
         raise ValueError("invalid truth value %r" % (val,))
     

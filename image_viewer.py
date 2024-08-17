@@ -4,9 +4,11 @@ import time
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import tkinter as tk
-from PIL import Image, ImageTk
-import io
-from utils import crop_center, resize_to_target
+from PIL import ImageTk
+from utils import cv2_crop_center, cv2_rotate_image, cv2_to_pil, cv_resize_to_target, quick_read_image
+import cv2
+import numpy as np
+import cv2
 
 ALLOWED_TYPES = ('.png', '.jpg', '.jpeg', '.bmp', '.webp')
 
@@ -31,14 +33,14 @@ class ImageViewer:
                  folder_to_watch, 
                  frame_interval=5, 
                  transition_duration=5, 
-                 orientation="both", 
+                 media_orientation_filter="both", 
                  display_mode="fullscreen",
                  rotation=0,
                  scale_mode='fill'):
         
         self.folder_to_watch = folder_to_watch
         self.frame_interval = frame_interval
-        self.orientation = orientation
+        self.media_orientation_filter = media_orientation_filter
         self.display_mode = display_mode
         self.rotation = rotation
         self.scale_mode = scale_mode
@@ -47,7 +49,7 @@ class ImageViewer:
         
         self.current_image_index = -1   #start at -1 so that the first image will be 0
         self.slideshow_active = True
-        self.transition_frames = 1
+        self.transition_frames = 30
 
         self.transition_duration = transition_duration
         self.transition_step = 0
@@ -91,7 +93,8 @@ class ImageViewer:
         self.root.bind('.', self.next_image)
 
         if self.current_displayed_image is None:
-            self.current_displayed_image = Image.new('RGB', (self.screen_width, self.screen_height), color='black')
+            self.current_displayed_image = quick_read_image(self.images[0])
+            self.current_displayed_image = cv2.resize(self.current_displayed_image, (self.screen_width, self.screen_height))
 
         self.root.focus_set()
 
@@ -115,23 +118,26 @@ class ImageViewer:
             self.root.geometry("800x600")
             self.root.config(cursor="arrow")
 
-    def set_orientation(self, orientation):
-        self.orientation = orientation
+    def set_media_orientation_filter(self, media_orientation_filter):
+        self.media_orientation_filter = media_orientation_filter
 
     def scan_folder(self):
         for filename in os.listdir(self.folder_to_watch):
             if filename.lower().endswith(ALLOWED_TYPES):
                 self.add_image(os.path.join(self.folder_to_watch, filename))
-
+    
     def image_orientation(self, image_path):
         try:
-            with Image.open(image_path) as img:
-                width, height = img.size
-                is_portrait = height > width
-                if is_portrait:
-                    return 'portrait'
-                else:
-                    return 'landscape'
+            img = quick_read_image(image_path)
+            if img is None:
+                raise ValueError("Image not found or unable to read")
+    
+            height, width = img.shape[:2]
+            is_portrait = height > width
+            if is_portrait:
+                return 'portrait'
+            else:
+                return 'landscape'
         except Exception as e:
             print(f"Error checking image orientation: {e}")
 
@@ -142,25 +148,31 @@ class ImageViewer:
     def update_parameters(self,
                           frame_interval=None, 
                           transition_duration=None, 
-                          orientation=None,
+                          media_orientation_filter=None,
                           display_mode=None,
                           rotation=None,
                           scale_mode=None):
+        
+        refresh = False  
+        
         if frame_interval is not None and frame_interval != self.frame_interval:
             self.frame_interval = frame_interval
         if transition_duration is not None and transition_duration != self.transition_duration:
             self.transition_duration = transition_duration
-        if orientation is not None and orientation != self.orientation:
-            self.set_orientation(orientation)
-            self.display_image(0)   #refresh the image with the new display mode
+        if media_orientation_filter is not None and media_orientation_filter != self.media_orientation_filter:
+            self.set_media_orientation_filter(media_orientation_filter)
+            refresh = True
         if display_mode is not None and display_mode != self.display_mode:
             self.set_display_mode(display_mode)
         if rotation is not None and rotation != self.rotation:
             self.rotation = rotation
-            self.display_image(0)   #refresh the image with the new rotation
+            refresh = True
         if scale_mode is not None and scale_mode != self.scale_mode:
             self.scale_mode = scale_mode
-            self.display_image(0)   #refresh the image with the new scale mode
+            refresh = True
+
+        if refresh:
+            self.display_image(0)   #refresh the image with the new display mode
 
     def remove_image(self, image_path):
         if image_path in self.images:
@@ -175,22 +187,25 @@ class ImageViewer:
             else:
                 self.display_image()
 
-    def check_image_orientation(self, image_path):
+    def check_image_media_orientation_filter(self, image_path):
         try:
-            with Image.open(image_path) as img:
-                width, height = img.size
-                is_portrait = height > width
-                
-                if self.orientation == "both":
-                    return True
-                elif self.orientation == "portrait" and is_portrait:
-                    return True
-                elif self.orientation == "landscape" and not is_portrait:
-                    return True
-                else:
-                    return False
+            img = quick_read_image(image_path)
+            if img is None:
+                raise ValueError("Image not found or unable to read")
+    
+            height, width = img.shape[:2]
+            is_portrait = height > width
+                        
+            if self.media_orientation_filter == "both":
+                return True
+            elif self.media_orientation_filter == "portrait" and is_portrait:
+                return True
+            elif self.media_orientation_filter == "landscape" and not is_portrait:
+                return True
+            else:
+                return False
         except Exception as e:
-            print(f"Error checking image orientation: {e}")
+            print(f"Error checking image media_orientation_filter: {e}")
             return False
 
     def get_image_name_from_index(self, index):
@@ -211,27 +226,29 @@ class ImageViewer:
 
         try:
             next_index = (self.current_image_index + direction) % len(self.images)
-            if not self.check_image_orientation(self.images[next_index]):
+            if not self.check_image_media_orientation_filter(self.images[next_index]):
                 self.display_image(direction=direction+1)
             else:
-                next_image = Image.open(self.images[next_index]).convert('RGB')
+                next_image = quick_read_image(self.images[next_index])
                 self.start_transition(next_image)
                 self.current_image_index = next_index
                 self.current_image_name = self.get_image_name_from_index(self.current_image_index)
             
         except Exception as e:
-            print(f"Error displaying image: {e}")
+            print(f"Error displaying image (display_image): {e}")
             self.current_image_index = (self.current_image_index + direction) % len(self.images)
             self.root.after(100, lambda: self.display_image(direction))
 
-    def process_image(self, image:Image):
-        image = image.rotate(self.rotation, expand=True)
-        image = resize_to_target(image, self.current_displayed_image, self.scale_mode)
-        if image.size != self.current_displayed_image.size:
-            image = crop_center(image, self.current_displayed_image.size)
+    def process_image(self, image):
+        # image = image.rotate(self.rotation, expand=True)
+        image = cv2_rotate_image(image, self.rotation)
+        image = cv_resize_to_target(image, self.current_displayed_image, self.scale_mode)
+        if image.shape != self.current_displayed_image.shape:
+            image = cv2_crop_center(image, self.current_displayed_image.shape)
         return image
 
     def display_image_by_name(self, filename):
+        # print(f"Displaying image {filename} at {time.time()}")
         if not self.images:
             return
 
@@ -241,20 +258,22 @@ class ImageViewer:
                 print(f"Image {filename} not found in the current list of images.")
                 return
 
-            next_image = Image.open(self.images[next_index]).convert('RGB')
+            # print(f'reading image {filename} at {time.time()}')
+            next_image = quick_read_image(self.images[next_index])
+            # print(f'starting transition for {filename} at {time.time()}')
             self.start_transition(next_image)
             self.current_image_index = next_index
             self.current_image_name = filename
             
         except Exception as e:
-            print(f"Error displaying image: {e}")
+            print(f"Error displaying image (display_image_by_name): {e}")
 
     def set_image(self, image, transition_duration=None):
         try:
             self.start_transition(image, transition_duration)
             self.current_image_name = "__overridden__"
         except Exception as e:
-            print(f"Error displaying image): {e}")
+            print(f"Error displaying image (set_image): {e}")
 
     def select_image_from_base64(self, base64_image, trasition_duration=0):
         '''
@@ -262,11 +281,12 @@ class ImageViewer:
         '''
         try:
             image_data = base64.b64decode(base64_image)
-            image = Image.open(io.BytesIO(image_data)).convert('RGB')
+            nparr = np.frombuffer(image_data, np.uint8)
+            image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             self.start_transition(image, transition_duration=trasition_duration)
             self.current_image_name = "__overridden__"
         except Exception as e:
-            print(f"Error displaying image: {e}")
+            print(f"Error displaying image (base64): {e}")
 
     def set_image_no_transition(self, image):
         '''
@@ -277,12 +297,17 @@ class ImageViewer:
 
         if self.slideshow_active:
             self.current_after_id = self.root.after(int(self.frame_interval * 1000), self.display_image)
+            
 
     def start_transition(self, next_image, transition_duration=None):
         '''
         Start transitioning from the current image to the next image
         '''
+        # print(f"Starting transition at {time.time()}")
         next_image = self.process_image(next_image)
+        
+        if transition_duration is None:
+            transition_duration = self.transition_duration
         
         if transition_duration == 0:
             self.set_image_no_transition(next_image)
@@ -293,13 +318,14 @@ class ImageViewer:
         self.transitioning = True
     
         #if next image size is different from current image size, take a center crop of the next image to match the current image size
-        if next_image.size != self.current_displayed_image.size:
-            next_image = crop_center(next_image, self.current_displayed_image.size)
+        if next_image.shape != self.current_displayed_image.shape:
+            next_image = cv2_crop_center(next_image, self.current_displayed_image.shape)
 
         if self.transitioning and self.blended_image is not None:
             self.current_displayed_image = self.blended_image
     
         self.target_image = next_image
+        # print(f"performing transition at {time.time()}")
         self.perform_transition(transition_duration=transition_duration)
     
     def render_image(self, image):
@@ -308,7 +334,9 @@ class ImageViewer:
         '''
         self.current_displayed_image = image
         self.blended_image = image
-        photo = ImageTk.PhotoImage(image)
+        # image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # image_pil = Image.fromarray(image_rgb)
+        photo = ImageTk.PhotoImage(cv2_to_pil(image))
         self.canvas.delete("all")
         width, height = photo.width(), photo.height()
         self.canvas.create_image(width // 2, height // 2, anchor=tk.CENTER, image=photo)
@@ -330,9 +358,11 @@ class ImageViewer:
         alpha = self.transition_step / self.transition_frames
 
         # Blend using the original image and the target image
-        self.blended_image = Image.blend(self.original_displayed_image, self.target_image, alpha)
+        blended_image = cv2.addWeighted(self.original_displayed_image, 1-alpha, self.target_image, alpha, 0)
+        self.blended_image = blended_image
 
         # Update the displayed image
+        # print(f"Rendering image step {self.transition_step} at {time.time()}")
         self.render_image(self.blended_image)
 
         self.transition_step += 1
@@ -346,22 +376,28 @@ class ImageViewer:
             self.transitioning = False
             self.current_displayed_image = self.target_image
             if self.slideshow_active:
-                self.current_after_id = self.root.after(int(self.frame_interval * 1000), self.display_image)
-
+                trigger_in = int(self.frame_interval * 1000)
+                # print(f"Triggering next image in {trigger_in} ms")
+                self.current_after_id = self.root.after(trigger_in, self.display_image)
+                # print(f"after signal sent")
+                
     def cancel_transition(self):
+        # print(f"Cancelling any prev transition at {time.time()}")
         if self.current_after_id:
             self.root.after_cancel(self.current_after_id)
             self.current_after_id = None
+                    
 
     def select_image(self, name):
         if self.images:
+            # print(f'Selecting image {name} at {time.time()}')
             self.display_image_by_name(name)
 
     def previous_image(self, event=None):
         if self.images:
             if event is not None:
                 if event.char == ",":
-                    image = Image.open(self.get_previous_image()).convert('RGB')
+                    image = quick_read_image(self.get_previous_image())
                     self.set_image_no_transition(image=image)
             self.display_image(direction=-1)
 
@@ -369,7 +405,7 @@ class ImageViewer:
         if self.images:
             if event is not None:
                 if event.char == ".":
-                    image = Image.open(self.get_next_image()).convert('RGB')
+                    image = quick_read_image(self.get_next_image())
                     self.set_image_no_transition(image=image)
             else:
                 self.display_image(direction=1)
@@ -417,8 +453,8 @@ if __name__ == '__main__':
     viewer = ImageViewer(folder_to_watch='images', 
                          frame_interval=2, 
                          transition_duration=1, 
-                         orientation='landscape', 
-                         display_mode='fullscreen', 
+                         media_orientation_filter='both', 
+                         display_mode='windowed', 
                          rotation=0,
                          scale_mode='fit')
     viewer.run()

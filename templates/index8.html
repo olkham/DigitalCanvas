@@ -26,7 +26,6 @@
             </form>
         </div>
         
-        
         <!-- Hamburger Icon -->
         <div class="hamburger-icon">
             <span></span>
@@ -36,10 +35,8 @@
 
         <!-- Settings Menu Container -->
         <div class="settings-menu">
-
-            <h2>Device Name: </h2>
+            <h2>Device Name</h2>
             <div class="device-name-container">
-                <!-- <label for="deviceNameText"></label> -->
                 <div><span id="deviceNameText">{{ device_name }}</span></div>
                 <input type="text" id="deviceNameInput" class="device-name-input" style="min-width: 150px;" value="{{ device_name }}">
                 <button class="edit-icon" onclick="editDeviceName()">✏️</button>
@@ -47,7 +44,7 @@
 
             <div class="theme-selector">
                 <label for="theme-dropdown">Choose a theme: </label>
-                <select id="theme-dropdown" onchange="sendThemeSelection()">
+                <select id="theme-dropdown" class="dropdown" onchange="sendThemeSelection()">
                     <option value="dark-theme" {% if selected_theme == 'dark-theme' %}selected{% endif %}>Dark</option>
                     <option value="light-theme" {% if selected_theme == 'light-theme' %}selected{% endif %}>Light</option>
                     <option value="darcula-theme" {% if selected_theme == 'darcula-theme' %}selected{% endif %}>Darcula</option>
@@ -59,62 +56,55 @@
                 </select>
             </div>
 
+            <hr>
+
             <h2>Slideshow Controls</h2>
             <div class="controls">
-                <form method="POST" action="{{ url_for('slideshow_previous') }}">
-                    <button type="submit">Previous</button>
-                </form>
-                <form method="POST" action="{{ url_for('slideshow_next') }}">
-                    <button type="submit">Next</button>
-                </form>
-                <br>
-                <div>
+                <div class="button-container">
+                    <form method="POST" action="{{ url_for('slideshow_previous') }}">
+                        <button type="submit">Previous</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('slideshow_next') }}">
+                        <button type="submit">Next</button>
+                    </form>
+                </div>
+                <div class="checkbox-container">
                     <label for="slideshow_active_checkbox">Slideshow Active</label>
                     <input type="checkbox" id="slideshow_active_checkbox" name="slideshow_active_checkbox" {% if slideshow_running %}checked{% endif %} onchange="toggleActiveSlideshow()"> 
                 </div>
 
                 <form method="POST" action="{{ url_for('configure_display') }}">
-                    <h2>Slideshow Images</h2>
-                    <div>
-                        <input type="radio" id="portrait" name="orientation" value="portrait" {% if orientation == 'portrait' %}checked{% endif %} onchange="handleOrientationFilterChange()">
-                        <label for="portrait">Portrait</label>
-                        <input type="radio" id="landscape" name="orientation" value="landscape" {% if orientation == 'landscape' %}checked{% endif %} onchange="handleOrientationFilterChange()">
-                        <label for="landscape">Landscape</label>
-                        <input type="radio" id="both" name="orientation" value="both" {% if orientation == 'both' %}checked{% endif %} onchange="handleOrientationFilterChange()">
-                        <label for="landscape">Both</label>
-                    </div>
-
-                    <h2>Display Mode</h2>
-                    <input type="radio" id="windowed" name="display_mode" value="windowed" {% if display_mode == 'windowed' %}checked{% endif %} onchange="handleDisplayModeChange()">
+                    <h2>Display Settings</h2>
+                    <label for="display_mode_windowed">Canvas: </label>
+                    <input type="radio" id="display_mode_windowed" name="display_mode" value="windowed" {% if display_mode == 'windowed' %}checked{% endif %} onchange="handleDisplayModeChange()">
                     <label for="windowed">Windowed</label>
-                    <input type="radio" id="fullscreen" name="display_mode" value="fullscreen" {% if display_mode == 'fullscreen' %}checked{% endif %} onchange="handleDisplayModeChange()">
+                    <input type="radio" id="display_mode_fullscreen" name="display_mode" value="fullscreen" {% if display_mode == 'fullscreen' %}checked{% endif %} onchange="handleDisplayModeChange()">
                     <label for="fullscreen">Fullscreen</label>
 
                     <div class="rotation-selector">
-                        <br>
                         <label for="rotation-dropdown">Screen Rotation: </label>
-                        <select id="rotation-dropdown" onchange="sendRotationSelection()">
+                        <select id="rotation-dropdown" class="dropdown" onchange="sendRotationSelection()" {% if auto_rotation %}disabled{% endif %}>
                             <option value="0" {% if rotation == 0 %}selected{% endif %}>0</option>
                             <option value="90" {% if rotation == 90 %}selected{% endif %}>90</option>
                             <option value="180" {% if rotation == 180 %}selected{% endif %}>180</option>
                             <option value="270" {% if rotation == 270 %}selected{% endif %}>270</option>
                         </select>
+                        <label for="auto-rotation">Auto</label>
+                        <input type="checkbox" id="auto-rotation" name="auto-rotation" onchange="toggleAutoRotation()" {% if auto_rotation %}checked{% endif %}>
                     </div>
 
-                    <h2>Scale Mode</h2>
+                    <!-- <h3>Scale Mode</h3> -->
+                    <label for="fit">Scale Mode: </label>
                     <input type="radio" id="fit" name="scale_mode" value="fit" {% if scale_mode == 'fit' %}checked{% endif %} onchange="handleScaleModeChange()">
                     <label for="fit">Fit</label>
                     <input type="radio" id="fill" name="scale_mode" value="fill" {% if scale_mode == 'fill' %}checked{% endif %} onchange="handleScaleModeChange()">
                     <label for="fill">Fill</label>
-
-                    <!-- <br> -->
-                    <!-- <button type="submit">Save</button> -->
                 </form>
 
                 <h2>Screen Control</h2>
                 <div>
                     <label for="brightness-slider">Brightness</label>
-                    <input type="range" id="brightness-slider" name="brightness-slider" min="0" max="100" onchange="sendBrightness()" value="{{ current_brightness }}">
+                    <input type="range" id="brightness-slider" name="brightness-slider" min="0" max="100" onchange="sendBrightness()" value="{{ current_brightness }}" {% if auto_brightness %}disabled{% endif %}>
                     <label for="auto-brightness">Auto</label>
                     <input type="checkbox" id="auto-brightness" name="auto-brightness" onchange="toggleAutoBrightness()" {% if auto_brightness %}checked{% endif %}>
                 </div>
@@ -130,20 +120,33 @@
                     {% endif %}
                 </div>
             </div>
-    
+            
+            <hr>
+                
             <h2>Slideshow Configuration</h2>
             <div class="controls">
+
+                <!-- <h2>Slideshow Image Filter</h2> -->
+                <div>
+                    <input type="radio" id="portrait" name="media_orientation_filter" value="portrait" {% if media_orientation_filter == 'portrait' %}checked{% endif %} onchange="handleOrientationFilterChange()">
+                    <label for="portrait">Portrait</label>
+                    <input type="radio" id="landscape" name="media_orientation_filter" value="landscape" {% if media_orientation_filter == 'landscape' %}checked{% endif %} onchange="handleOrientationFilterChange()">
+                    <label for="landscape">Landscape</label>
+                    <input type="radio" id="both" name="media_orientation_filter" value="both" {% if media_orientation_filter == 'both' %}checked{% endif %} onchange="handleOrientationFilterChange()">
+                    <label for="landscape">Both</label>
+                </div>
+
                 <form id="slideshowConfigForm" method="POST" action="{{ url_for('configure_slideshow') }}">
                     <label for="transition_duration">Transition Duration (seconds):</label>
-                    <input type="number" id="transition_duration" name="transition_duration" min="1" max="60" value="{{ transition_duration }}" required>
-                    <br>
+                    <input type="number" id="transition_duration" name="transition_duration" min="0" max="1800" value="{{ transition_duration }}" required>
                     <label for="frame_interval">Frame Interval (seconds):</label>
                     <input type="number" id="frame_interval" name="frame_interval" min="1" max="3600" value="{{ frame_interval }}" required>
-                    <br>
                     <button type="submit">Save Configuration</button>
                 </form>
             </div>
     
+            <hr>
+
             <h2>MQTT Configuration</h2>
             <div class="controls">
                 <form id="mqttConfigForm" method="POST" action="{{ url_for('configure_mqtt') }}">
@@ -161,9 +164,34 @@
                     </span>
                 </div>
             </div>
+
+            <hr>
+
+            <h2>Plex</h2>
+            <p>Plex integration allows the plex server to send a webhook request to this canvas. </p>
+            <div class="controls">
+                <div>
+                    <form id="plexConfigForm" method="POST" action="{{ url_for('configure_plex') }}">
+                        <label for="plex_port">Port:</label>
+                        <input type="number" id="plex_port" name="plex_port" value="{{ plex_port }}" required>
+                        <button type="submit">Save</button>
+                    </form>
+                </div>
+                <br>
+                <div>
+                    <label for="allow_plex">Enable</label>
+                    <input type="checkbox" id="allow_plex" name="allow_plex" onchange="toggleAllowPlex()" {% if allow_plex %}checked{% endif %}>
+                </div>
+            </div>
         </div>
 
-        <h2>Gallery</h2>
+        <h2>Gallery
+            <select id="filter-dropdown" class="dropdown" onchange="handleOrientationFilterDropdownChange()">
+                <option value="landscape" {% if media_orientation_filter == 'landscape' %}selected{% endif %}>Landscape</option>
+                <option value="portrait" {% if media_orientation_filter == 'portrait' %}selected{% endif %}>Portrait</option>
+                <option value="both" {% if media_orientation_filter == 'both' %}selected{% endif %}>Both</option>
+            </select>
+        </h2>
 
         <form id="deleteForm" method="POST" action="{{ url_for('delete_file') }}" style="display: none;">
             <input type="hidden" name="filename" id="deleteFilename">
@@ -171,12 +199,12 @@
 
         <div class="gallery">
             {% for file in files %}
-            <div class="gallery-item" data-filename="{{ file }}" data-orientation="{{ orientation }}" onclick="selectFile('{{ file }}')">
+            <div class="gallery-item" data-filename="{{ file }}" data-media_orientation_filter="{{ media_orientation_filter }}" onclick="selectFile('{{ file }}')">
                 <img src="{{ url_for('uploaded_thumbnail', filename=file) }}" alt="Thumbnail">
                 <button class="delete-button" onclick="confirmDelete('{{ file }}', event)">&times;</button>
                 
-                <span class="portrait-icon" {% if orientation != 'portrait' %}style="display:none;"{% endif %}>&#9647;</span>
-                <span class="landscape-icon" {% if orientation != 'landscape' %}style="display:none;"{% endif %}>&#9645;</span>
+                <span class="portrait-icon" {% if media_orientation_filter != 'portrait' %}style="display:none;"{% endif %}>&#9647;</span>
+                <span class="landscape-icon" {% if media_orientation_filter != 'landscape' %}style="display:none;"{% endif %}>&#9645;</span>
                 <div class="info">
                     <a href="{{ url_for('uploaded_file', filename=file) }}">View</a>
                 </div>
@@ -185,6 +213,53 @@
         </div>
 
         <script>
+
+
+
+
+        function handleOrientationFilterDropdownChange() {
+            const filter_dropdown = document.getElementById('filter-dropdown');
+            media_orientation_filter = filter_dropdown.value;
+
+            // Send the new media_orientation_filter to the server
+            fetch("{{ url_for('configure_display') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'media_orientation_filter=' + media_orientation_filter
+            }).then(() => {
+                // Reload the page after the fetch request completes
+                window.location.reload();
+            }).catch(error => {
+                console.error('Error configuring display:', error);
+            });
+        }
+
+
+
+        function toggleAllowPlex() {
+            const allowPlexCheckbox = document.getElementById('allow_plex');
+
+            // Read the checkbox state
+            const state = allowPlexCheckbox.checked;
+
+            // Send the new state to the server
+            fetch("{{ url_for('configure_plex') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'allow_plex=' + state
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Success:', data);
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
 
         function toggleDropdown() {
             var formContainer = document.getElementById('formContainer');
@@ -203,21 +278,21 @@
             const landscapeRadio = document.getElementById('landscape');
             const bothRadio = document.getElementById('both');
             
-            // Read the selected orientation
-            let orientation = 'all';
+            // Read the selected media_orientation_filter
+            let media_orientation_filter = 'both';
             if (portraitRadio.checked) {
-                orientation = 'portrait';
+                media_orientation_filter = 'portrait';
             } else if (landscapeRadio.checked) {
-                orientation = 'landscape';
+                media_orientation_filter = 'landscape';
             }
 
-            // Send the new orientation to the server
+            // Send the new media_orientation_filter to the server
             fetch("{{ url_for('configure_display') }}", {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: 'orientation=' + orientation
+                body: 'media_orientation_filter=' + media_orientation_filter
             }).then(() => {
                 // Reload the page after the fetch request completes
                 window.location.reload();
@@ -244,8 +319,8 @@
         }
 
         function handleDisplayModeChange() {
-            const windowedRadio = document.getElementById('windowed');
-            const fullscreenRadio = document.getElementById('fullscreen');
+            const windowedRadio = document.getElementById('display_mode_windowed');
+            const fullscreenRadio = document.getElementById('display_mode_fullscreen');
             
             // Read the selected display mode
             const displayMode = windowedRadio.checked ? 'windowed' : 'fullscreen';
@@ -315,6 +390,49 @@
             });
         }
 
+        function toggleAutoRotation() {
+            const autoRotationCheckbox = document.getElementById('auto-rotation');
+            const rotationDropdown = document.getElementById('rotation-dropdown');
+
+            if (autoRotationCheckbox.checked) {
+                rotationDropdown.disabled = true;
+                sendRotationSelection();
+            } else {
+                rotationDropdown.disabled = false;
+                sendRotationSelection();
+            }
+        }
+
+        function sendRotationSelection() {
+            const selectElement = document.getElementById('rotation-dropdown');
+            const autoRotationCheckbox = document.getElementById('auto-rotation');
+
+            rotationValue = 0;
+
+            if (autoRotationCheckbox.checked) {
+                rotationValue = -1;
+            } else {
+                rotationValue = selectElement.value;
+            }
+
+            // Send the new device name to the server
+            fetch("{{ url_for('configure_display') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'rotation=' + rotationValue
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Success:', data);
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
+       
+
         function toggleAutoBrightness() {
             const sliderElement = document.getElementById('brightness-slider');
             const autoBrightnessCheckbox = document.getElementById('auto-brightness');
@@ -357,39 +475,18 @@
             });
         }
 
-        function filterItems(orientation) {
+        function filterItems(media_orientation_filter) {
             const items = document.querySelectorAll('.gallery-item');
             items.forEach(item => {
-                if (orientation === 'all') {
+                if (orientation === 'both') {
                     item.style.display = 'block';
                 } else {
-                    if (item.getAttribute('data-orientation') === orientation) {
+                    if (item.getAttribute('data-media_orientation_filter') === media_orientation_filter) {
                         item.style.display = 'block';
                     } else {
                         item.style.display = 'none';
                     }
                 }
-            });
-        }
-
-        function sendRotationSelection() {
-            const selectElement = document.getElementById('rotation-dropdown');
-            const selectedValue = selectElement.value;
-
-            // Send the new device name to the server
-            fetch("{{ url_for('configure_display') }}", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: 'rotation=' + selectedValue
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log('Success:', data);
-            })
-            .catch((error) => {
-                console.error('Error:', error);
             });
         }
 

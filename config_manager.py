@@ -1,20 +1,74 @@
 import json
 import os
-
+import ipaddress
 from utils import get_short_system_uuid
 
+
+# Valid values for the configuration parameters
+valid_media_orientation_filters = ['portrait', 'landscape', 'both']
+valid_display_modes = ['windowed', 'fullscreen']
+valid_themes = ['light-theme', 'dark-theme', 'darcula-theme', 'spring-blossom-theme', 'winter-wonderland-theme', 'autumn-leaves-theme', 'autumn-leaves-theme', 'ocean-breeze-theme', 'warm-sunset-theme']
+valid_scale_modes = ['fill', 'fit']
+valid_auto_brightness = [True, False]
+valid_auto_rotation = [True, False]
+valid_rotation = [0, 90, 180, 270]
+valid_allow_plex = [True, False]
+
+# Valid values for the configuration parameters
+valid_values = {
+    'media_orientation_filter': valid_media_orientation_filters,
+    'display_mode': valid_display_modes,
+    'theme': valid_themes,
+    'scale_mode': valid_scale_modes,
+    'auto_brightness': valid_auto_brightness,
+    'auto_rotation': valid_auto_rotation,
+    'rotation': valid_rotation,
+    'allow_plex': valid_allow_plex,
+}
+
+
 class ConfigManager:
+    """Class to manage the configuration of the digital canvas."""
+    @staticmethod
+    def is_valid_value(key, value):
+        """Check if the value is valid for the given key."""
+        if key in valid_values:
+            return value in valid_values[key]
+        if key == 'web_interface_port':
+            return isinstance(value, int) and 0 <= value <= 65535
+        if key == 'mqtt_port':
+            return isinstance(value, int) and 0 <= value <= 65535
+        if key == 'plex_port':
+            return isinstance(value, int) and 0 <= value <= 65535
+        if key == 'frame_interval':
+            return isinstance(value, int) and value > 0
+        if key == 'transition_duration':
+            return isinstance(value, int) and value >= 0
+        if key == 'device_name':
+            return isinstance(value, str) and len(value) > 0
+        if key == 'mqtt_topic':
+            return isinstance(value, str) and len(value) > 0
+        
+        if key == 'mqtt_broker':
+            try:
+                ipaddress.ip_address(value)
+                return True
+            except ValueError:
+                return False
+
+        return False
+    
     def __init__(self, config_file_path):
-        self.default_config = self.populate_defaults()
-        self.config_file_path = config_file_path
-        self.config = self.load_config()  # Add a publicly accessible config dict
+        self.default_config = self.populate_defaults()      # Populate the default configuration values
+        self.config_file_path = config_file_path            # Path to the configuration file
+        self.config = self.load_config()                    # Load the configuration from the JSON file
         
     def populate_defaults(self):
         """Populate the default configuration values."""
         default_config = {
             'frame_interval': 1,                                            #seconds 
             'transition_duration': 5,                                       #seconds
-            'orientation': 'landscape',                                     #portrait, landscape, both
+            'media_orientation_filter': 'landscape',                        #portrait, landscape, both
             'display_mode': 'fullscreen',                                   #windowed, fullscreen
             'web_interface_port': 7000,                                     #web server port
             'mqtt_broker': 'localhost',                                     #mqtt broker address
@@ -25,8 +79,9 @@ class ConfigManager:
             'rotation': 0,                                                  #0, 90, 180, 270
             "scale_mode": "fit",                                            #fill, fit
             "plex_port": 32400,                                             #plex server port, default 32400 where to fetch art from
-            "auto_brightness": True,                                       #auto brightness adjustment
-            "auto_rotate": True,                                           #auto rotation
+            "allow_plex": True,                                             #allow plex server to fetch art
+            "auto_brightness": True,                                        #auto brightness adjustment
+            "auto_rotation": True,                                          #auto rotation
         }
         return default_config
 
@@ -62,13 +117,16 @@ class ConfigManager:
         for key, value in self.default_config.items():
             if key not in self.config:
                 self.update_parameter(key, value)
-                # config[key] = value
 
     def update_parameter(self, key, value):
         """Update a parameter in the configuration and save it."""
-        if value is not None:
+        if value is not None and self.is_valid_value(key, value):
             self.config[key] = value
             self.save_config()
+
+    def __getitem__(self, key):
+        """Get the value of a configuration parameter."""
+        return self.config.get(key, None)
 
 # Example usage
 # config_manager = ConfigManager('config.json')
