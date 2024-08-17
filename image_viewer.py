@@ -11,7 +11,7 @@ import numpy as np
 import cv2
 
 ALLOWED_TYPES = ('.png', '.jpg', '.jpeg', '.bmp', '.webp')
-
+__OVERRIDDEN__ = '__overridden__'
 
 class ImageHandler(FileSystemEventHandler):
     def __init__(self, add_image_function, remove_image_function):
@@ -271,7 +271,7 @@ class ImageViewer:
     def set_image(self, image, transition_duration=None):
         try:
             self.start_transition(image, transition_duration)
-            self.current_image_name = "__overridden__"
+            self.current_image_name = __OVERRIDDEN__
         except Exception as e:
             print(f"Error displaying image (set_image): {e}")
 
@@ -284,7 +284,7 @@ class ImageViewer:
             nparr = np.frombuffer(image_data, np.uint8)
             image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             self.start_transition(image, transition_duration=trasition_duration)
-            self.current_image_name = "__overridden__"
+            self.current_image_name = __OVERRIDDEN__
         except Exception as e:
             print(f"Error displaying image (base64): {e}")
 
