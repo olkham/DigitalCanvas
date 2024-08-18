@@ -15,7 +15,7 @@
         <h2 onclick="toggleDropdown()">Add Images <span id="dropdownArrow" class="dropdown-arrow">▼</span></h2>
 
         <div id="formContainer" class="form-container" style="display: none;">
-            <form method="POST" action="{{ url_for('index') }}" enctype="multipart/form-data">
+            <form method="POST" action="{{ url_for('upload_file') }}" enctype="multipart/form-data">
                 <h3>Upload an image</h3>
                 <input type="file" name="file" multiple>
                 <input type="submit" value="Upload File">

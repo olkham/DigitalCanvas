@@ -134,7 +134,6 @@ class SlideshowManager:
             return self.viewer.slideshow_active
         return False
     
-    
     def setup_mqtt_client(self):
         try:
             if self.mqtt_client is not None:

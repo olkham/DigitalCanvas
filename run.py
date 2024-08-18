@@ -32,7 +32,8 @@ class API:
     """
     home_url = f'/'
     display_now = f'/display_now'
-    upload = f'/uploads/<filename>'
+    upload = f'/upload'
+    uploads = f'/uploads/<filename>'
     thumbnails = f'/thumbnails/<filename>'
     update_device_name = f'/update_device_name'
     
@@ -60,7 +61,6 @@ class API:
 class CombinedApp:
     def __init__(self, config_manager: dict):
         self.config_manager = config_manager
-        # self.mqtt_client = None
         
         self.app = Flask(__name__)
         self.app.config['UPLOAD_FOLDER'] = 'images'
@@ -69,17 +69,13 @@ class CombinedApp:
         check_and_create(self.app.config['UPLOAD_FOLDER'])
         check_and_create(self.app.config['THUMBNAIL_FOLDER'])
         create_thumbnails_for_existing_images(self.app.config['UPLOAD_FOLDER'], self.app.config['THUMBNAIL_FOLDER'])
+        self.setup_flask_routes()
 
-        self.slideshow_manager = SlideshowManager(os.path.join(os.path.dirname(os.path.abspath(__file__)), "images"),
+        self.slideshow_manager = SlideshowManager(os.path.join(os.path.dirname(os.path.abspath(__file__)), self.app.config['UPLOAD_FOLDER']),
                                                   config_manager=self.config_manager)
         
         self.image_selection_queue = Queue()
         self.slideshow_manager.set_image_selection_queue(self.image_selection_queue)
-        # self.slideshow_manager.image_change_callback = self.publish_current_image
-
-        self.setup_flask_routes()
-        # self.setup_mqtt_client()
-        
         self.monitor_controller = MonitorController()
         self.sensor_reader = SensorReader()
 
@@ -87,24 +83,24 @@ class CombinedApp:
     def setup_flask_routes(self):
         @self.app.route(API.home_url, methods=['GET', 'POST'])
         def index():
-            if request.method == 'POST':
-                if 'file' in request.files and request.files['file'].filename != '':
-                    files = request.files.getlist('file')
-                    for file in files:
-                        filename = replace_webp_extension(file.filename)
-                        file_path = os.path.join(self.app.config['UPLOAD_FOLDER'], filename)
-                        file.save(file_path)
-                        thumbnail_path = os.path.join(self.app.config['THUMBNAIL_FOLDER'], filename)
-                        create_thumbnail(file_path, thumbnail_path)
-                elif 'image_url' in request.form and request.form['image_url'] != '':
-                    image_url = request.form['image_url']
-                    filename = save_remote_image(image_url, self.app.config['UPLOAD_FOLDER'])
-                    filename = replace_webp_extension(filename)
-                    if filename:
-                        file_path = os.path.join(self.app.config['UPLOAD_FOLDER'], filename)
-                        thumbnail_path = os.path.join(self.app.config['THUMBNAIL_FOLDER'], filename)
-                        create_thumbnail(file_path, thumbnail_path)
-                return redirect(url_for('index'))
+            # if request.method == 'POST':
+            #     if 'file' in request.files and request.files['file'].filename != '':
+            #         files = request.files.getlist('file')
+            #         for file in files:
+            #             filename = replace_webp_extension(file.filename)
+            #             file_path = os.path.join(self.app.config['UPLOAD_FOLDER'], filename)
+            #             file.save(file_path)
+            #             thumbnail_path = os.path.join(self.app.config['THUMBNAIL_FOLDER'], filename)
+            #             create_thumbnail(file_path, thumbnail_path)
+            #     elif 'image_url' in request.form and request.form['image_url'] != '':
+            #         image_url = request.form['image_url']
+            #         filename = save_remote_image(image_url, self.app.config['UPLOAD_FOLDER'])
+            #         filename = replace_webp_extension(filename)
+            #         if filename:
+            #             file_path = os.path.join(self.app.config['UPLOAD_FOLDER'], filename)
+            #             thumbnail_path = os.path.join(self.app.config['THUMBNAIL_FOLDER'], filename)
+            #             create_thumbnail(file_path, thumbnail_path)
+            #     return redirect(url_for('index'))
 
             # Get the list of files in the upload folder
             files = os.listdir(self.app.config['UPLOAD_FOLDER'])
@@ -163,9 +159,30 @@ class CombinedApp:
             else:
                 return "No image data provided", 400
 
-        @self.app.route(API.upload, methods=['GET'])
+        @self.app.route(API.uploads, methods=['GET'])
         def uploaded_file(filename):
             return send_from_directory(self.app.config['UPLOAD_FOLDER'], filename)
+
+        @self.app.route(API.upload, methods=['POST'])
+        def upload_file():
+            if request.method == 'POST':
+                if 'file' in request.files and request.files['file'].filename != '':
+                    files = request.files.getlist('file')
+                    for file in files:
+                        filename = replace_webp_extension(file.filename)
+                        file_path = os.path.join(self.app.config['UPLOAD_FOLDER'], filename)
+                        file.save(file_path)
+                        thumbnail_path = os.path.join(self.app.config['THUMBNAIL_FOLDER'], filename)
+                        create_thumbnail(file_path, thumbnail_path)
+                elif 'image_url' in request.form and request.form['image_url'] != '':
+                    image_url = request.form['image_url']
+                    filename = save_remote_image(image_url, self.app.config['UPLOAD_FOLDER'])
+                    filename = replace_webp_extension(filename)
+                    if filename:
+                        file_path = os.path.join(self.app.config['UPLOAD_FOLDER'], filename)
+                        thumbnail_path = os.path.join(self.app.config['THUMBNAIL_FOLDER'], filename)
+                        create_thumbnail(file_path, thumbnail_path)
+                return redirect(url_for('index'))
 
         @self.app.route(API.thumbnails, methods=['GET'])
         def uploaded_thumbnail(filename):

@@ -332,6 +332,44 @@ def cv_resize_to_target(src_image, target_image, resize_option):
     else:
         return resized_image
 
+def cv_resize_to_target_size(src_image, target_height, target_width, resize_option):
+    # resize the image to resize to a target size using two options: fill or fit
+    
+    image_height, image_width = src_image.shape[:2]
+    
+    image_aspect = image_width / image_height
+    target_aspect = target_width / target_height
+
+    if resize_option == 'fill':
+        if image_aspect > target_aspect:
+            new_height = target_height
+            new_width = int(new_height * image_aspect)
+        else:
+            new_width = target_width
+            new_height = int(new_width / image_aspect)
+    elif resize_option == 'fit':
+        if image_aspect > target_aspect:
+            new_width = target_width
+            new_height = int(new_width / image_aspect)
+        else:
+            new_height = target_height
+            new_width = int(new_height * image_aspect)
+    else:
+        raise ValueError("Invalid resize option. Use 'fill' or 'fit'.")
+
+    resized_image = cv2.resize(src_image, (new_width, new_height), interpolation=cv2.INTER_LANCZOS4)
+
+    if resize_option == 'fill':
+        left = (new_width - target_width) // 2
+        top = (new_height - target_height) // 2
+        right = left + target_width
+        bottom = top + target_height
+        cropped_image = resized_image[top:bottom, left:right]
+        return cropped_image
+    else:
+        return resized_image
+
+
 def pil_to_cv2(pil_img):
     '''Convert PIL Image to OpenCV image (numpy.ndarray).'''
     cv2_img = np.array(pil_img)
