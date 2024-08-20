@@ -357,7 +357,13 @@ def cv_resize_to_target_size(src_image, target_height, target_width, resize_opti
     else:
         raise ValueError("Invalid resize option. Use 'fill' or 'fit'.")
 
-    resized_image = cv2.resize(src_image, (new_width, new_height), interpolation=cv2.INTER_LANCZOS4)
+    #check if we're downscaling or upscaling
+    if new_width < image_width or new_height < image_height:
+        interpolation = cv2.INTER_AREA
+    else:
+        interpolation = cv2.INTER_LANCZOS4 # or INTER_CUBIC 
+
+    resized_image = cv2.resize(src_image, (new_width, new_height), interpolation=interpolation)
 
     if resize_option == 'fill':
         left = (new_width - target_width) // 2

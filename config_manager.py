@@ -66,6 +66,8 @@ class ConfigManager:
     def populate_defaults(self):
         """Populate the default configuration values."""
         default_config = {
+            'image_folder': 'images',                                      #folder containing images
+            'thumbnail_folder': 'thumbnails',                              #folder containing thumbnails
             'frame_interval': 1,                                            #seconds 
             'transition_duration': 5,                                       #seconds
             'media_orientation_filter': 'landscape',                        #portrait, landscape, both

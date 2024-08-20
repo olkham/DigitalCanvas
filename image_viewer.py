@@ -1,8 +1,8 @@
 import base64
 import os
 import time
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
+# from watchdog.observers import Observer
+# from watchdog.events import FileSystemEventHandler
 import tkinter as tk
 from PIL import ImageTk
 from utils import cv2_crop_center, cv2_rotate_image, cv2_to_pil, cv_resize_to_target, quick_read_image
@@ -13,45 +13,45 @@ import cv2
 ALLOWED_TYPES = ('.png', '.jpg', '.jpeg', '.bmp', '.webp')
 __OVERRIDDEN__ = '__overridden__'
 
-class ImageHandler(FileSystemEventHandler):
-    def __init__(self, add_image_function, remove_image_function):
-        self.add_image_function = add_image_function
-        self.remove_image_function = remove_image_function
+# class ImageHandler(FileSystemEventHandler):
+#     def __init__(self, add_image_function, remove_image_function):
+#         self.add_image_function = add_image_function
+#         self.remove_image_function = remove_image_function
 
-    def on_created(self, event):
-        if not event.is_directory and event.src_path.lower().endswith(ALLOWED_TYPES):
-            time.sleep(1)
-            self.add_image_function(event.src_path)
+#     def on_created(self, event):
+#         if not event.is_directory and event.src_path.lower().endswith(ALLOWED_TYPES):
+#             time.sleep(1)
+#             self.add_image_function(event.src_path)
 
-    def on_deleted(self, event):
-        if not event.is_directory and event.src_path.lower().endswith(ALLOWED_TYPES):
-            self.remove_image_function(event.src_path)
+#     def on_deleted(self, event):
+#         if not event.is_directory and event.src_path.lower().endswith(ALLOWED_TYPES):
+#             self.remove_image_function(event.src_path)
 
 
 class ImageViewer:
     def __init__(self, 
-                 folder_to_watch, 
-                 frame_interval=5, 
-                 transition_duration=5, 
-                 media_orientation_filter="both", 
-                 display_mode="fullscreen",
-                 rotation=0,
-                 scale_mode='fill'):
+                 folder_to_watch,
+                 config_manager=None):
         
+        self.config_manager = config_manager
+        self.frame_interval = self.config_manager['frame_interval']
+        self.transition_duration = self.config_manager['transition_duration']
+        self.media_orientation_filter = self.config_manager['media_orientation_filter']
+        self.display_mode = self.config_manager['display_mode']
+        self.rotation = self.config_manager['rotation']
+        self.scale_mode = self.config_manager['scale_mode']
+        self.auto_rotate = self.config_manager['auto_rotation']
+        self.auto_brightness = self.config_manager['auto_brightness']
         self.folder_to_watch = folder_to_watch
-        self.frame_interval = frame_interval
-        self.media_orientation_filter = media_orientation_filter
-        self.display_mode = display_mode
-        self.rotation = rotation
-        self.scale_mode = scale_mode
-        
+
+
         self.images = []
         
         self.current_image_index = -1   #start at -1 so that the first image will be 0
         self.slideshow_active = True
-        self.transition_frames = 30
+        self.transition_frames = 50
 
-        self.transition_duration = transition_duration
+        # self.transition_duration = transition_duration
         self.transition_step = 0
         self.current_after_id = None
         self.transitioning = False
@@ -80,9 +80,9 @@ class ImageViewer:
 
         self.scan_folder()
         
-        self.observer = Observer()
-        self.observer.schedule(ImageHandler(self.add_image, self.remove_image), self.folder_to_watch, recursive=False)
-        self.observer.start()
+        # self.observer = Observer()
+        # self.observer.schedule(ImageHandler(self.add_image, self.remove_image), self.folder_to_watch, recursive=False)
+        # self.observer.start()
 
         self.root.bind('<Escape>', self.quit_app)
         self.root.bind('q', self.quit_app)
@@ -154,6 +154,20 @@ class ImageViewer:
                           scale_mode=None):
         
         refresh = False  
+        
+        # if frame_interval is not None and frame_interval >= 0 and frame_interval != self.frame_interval:
+        #     self.frame_interval = frame_interval
+        # if transition_duration is not None and transition_duration >= 0 and transition_duration != self.transition_duration:
+        #     self.transition_duration = transition_duration
+        # if media_orientation_filter is not None and ConfigManager.is_valid_value('media_orientation_filter', media_orientation_filter) and media_orientation_filter != self.media_orientation_filter:
+        #     self.media_orientation_filter = media_orientation_filter
+        # if display_mode is not None and ConfigManager.is_valid_value('display_mode', display_mode) and display_mode != self.display_mode:
+        #     self.display_mode = display_mode
+        # if rotation is not None and ConfigManager.is_valid_value('rotation', rotation) and rotation != self.rotation:
+        #     self.rotation = rotation
+        # if scale_mode is not None and ConfigManager.is_valid_value('scale_mode', scale_mode) and scale_mode != self.scale_mode:
+        #     self.scale_mode = scale_mode
+        
         
         if frame_interval is not None and frame_interval != self.frame_interval:
             self.frame_interval = frame_interval
@@ -240,7 +254,6 @@ class ImageViewer:
             self.root.after(100, lambda: self.display_image(direction))
 
     def process_image(self, image):
-        # image = image.rotate(self.rotation, expand=True)
         image = cv2_rotate_image(image, self.rotation)
         image = cv_resize_to_target(image, self.current_displayed_image, self.scale_mode)
         if image.shape != self.current_displayed_image.shape:
@@ -248,7 +261,6 @@ class ImageViewer:
         return image
 
     def display_image_by_name(self, filename):
-        # print(f"Displaying image {filename} at {time.time()}")
         if not self.images:
             return
 
@@ -258,9 +270,7 @@ class ImageViewer:
                 print(f"Image {filename} not found in the current list of images.")
                 return
 
-            # print(f'reading image {filename} at {time.time()}')
             next_image = quick_read_image(self.images[next_index])
-            # print(f'starting transition for {filename} at {time.time()}')
             self.start_transition(next_image)
             self.current_image_index = next_index
             self.current_image_name = filename
@@ -303,7 +313,6 @@ class ImageViewer:
         '''
         Start transitioning from the current image to the next image
         '''
-        # print(f"Starting transition at {time.time()}")
         next_image = self.process_image(next_image)
         
         if transition_duration is None:
@@ -325,7 +334,6 @@ class ImageViewer:
             self.current_displayed_image = self.blended_image
     
         self.target_image = next_image
-        # print(f"performing transition at {time.time()}")
         self.perform_transition(transition_duration=transition_duration)
     
     def render_image(self, image):
@@ -334,8 +342,6 @@ class ImageViewer:
         '''
         self.current_displayed_image = image
         self.blended_image = image
-        # image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        # image_pil = Image.fromarray(image_rgb)
         photo = ImageTk.PhotoImage(cv2_to_pil(image))
         self.canvas.delete("all")
         width, height = photo.width(), photo.height()
@@ -362,7 +368,6 @@ class ImageViewer:
         self.blended_image = blended_image
 
         # Update the displayed image
-        # print(f"Rendering image step {self.transition_step} at {time.time()}")
         self.render_image(self.blended_image)
 
         self.transition_step += 1
@@ -377,12 +382,9 @@ class ImageViewer:
             self.current_displayed_image = self.target_image
             if self.slideshow_active:
                 trigger_in = int(self.frame_interval * 1000)
-                # print(f"Triggering next image in {trigger_in} ms")
                 self.current_after_id = self.root.after(trigger_in, self.display_image)
-                # print(f"after signal sent")
                 
     def cancel_transition(self):
-        # print(f"Cancelling any prev transition at {time.time()}")
         if self.current_after_id:
             self.root.after_cancel(self.current_after_id)
             self.current_after_id = None
@@ -390,7 +392,6 @@ class ImageViewer:
 
     def select_image(self, name):
         if self.images:
-            # print(f'Selecting image {name} at {time.time()}')
             self.display_image_by_name(name)
 
     def previous_image(self, event=None):
@@ -445,9 +446,9 @@ class ImageViewer:
         self.slideshow_active = True
         self.display_image()
 
-    def __del__(self):
-        self.observer.stop()
-        self.observer.join()
+    # def __del__(self):
+    #     self.observer.stop()
+    #     self.observer.join()
 
 if __name__ == '__main__':
     viewer = ImageViewer(folder_to_watch='images', 

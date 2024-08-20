@@ -7,6 +7,7 @@ from utils import cv2_crop_center, read_image_from_url, quick_read_image, cv_res
 
 from typing import List, Optional
 from enum import Enum
+from queue import Queue
 
 
 class ImageContainer:
@@ -51,6 +52,10 @@ class ImageContainer:
         self.check_for_thumbnail(thumbnail_dir)         #check if thumbnail exists, if not create one
         self.populate_properties()                      #populate the properties of the image
 
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, ImageContainer):
+            return False
+        return self.filename == other.filename
 
     def check_processing_parameters(self, target_height, target_width, scale_mode, angle):
         #if the processing parameters are different from the current processing parameters, then reprocess the image
@@ -155,6 +160,9 @@ class MediaManager:
         self.thumbnail_width = thumbnail_width
         self.thumbnail_height = thumbnail_height
         
+        #todo - implement the playlist and make it accessible to slideshow_manager and image_viewer
+        self.playlist = Queue()     #queue to store the media files
+        
     def populate_media_files(self):
         self.media_files = self.load_media_files()
 
@@ -185,7 +193,18 @@ class MediaManager:
         return self.media_files
     
     def get_random_media(self):
-        return random.choice(self.media_files)
+        # Filter out the current image
+        available_media = [media for media in self.media_files if media != self.current_media]
+        
+        # If no other media is available, just pick a random media file
+        if not available_media:
+            self.current_media = random.choice(self.media_files)
+        else:
+            # Select a random media file from the available media
+            self.current_media = random.choice(available_media)
+
+        return self.current_media
+    
     
     def get_media_by_index(self, index):
         return self.media_files[index]
@@ -234,7 +253,7 @@ if __name__ == '__main__':
         print(media.get_image().shape) 
         print(media.get_processed_image().shape)
         cv2.imshow('image', media.get_processed_image())
-        cv2.waitKey(0)
+        cv2.waitKey(100)
         print('---------------------------------')
     print('---------------------------------')
     print('---------------------------------')
@@ -252,8 +271,29 @@ if __name__ == '__main__':
         print(media.get_image().shape) 
         print(media.get_processed_image().shape)
         cv2.imshow('image', media.get_processed_image())
-        cv2.waitKey(0)
+        cv2.waitKey(100)
         print('---------------------------------')
     print('---------------------------------')
     print('---------------------------------')
     print('---------------------------------')
+    
+    
+    while True:
+        media = media_manager.get_random_media()
+        media.check_processing_parameters(1080, 1920, ImageContainer.ScaleMode.FIT.value, 0)
+        print(media.filename)
+        print(media.orientation)
+        print(media.is_portrait)
+        print(media.height, media.width)
+        print(media.thumbnail_path)
+        print(media.get_thumbnail().shape)
+        print(media.get_image().shape) 
+        print(media.get_processed_image().shape)
+        cv2.imshow('image', media.get_processed_image())
+        key = cv2.waitKey(0)
+        if key == ord('q') or key == 27:
+            break
+        print('---------------------------------')
+        print('---------------------------------')
+        print('---------------------------------')
+        print('---------------------------------')

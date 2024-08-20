@@ -14,12 +14,12 @@ import base64
 from monitor_controller import MonitorController
 from sensors2 import SensorReader
 
+# from media_manager import MediaManager
 # import logging
 # log = logging.getLogger('werkzeug')
 # log.setLevel(logging.ERROR)
 
 # todo
-#1 add option for random image selection or sequential
 #5 improve performance of the portraint/landscape icon on the gallery view
 #7 build in the clock map
 #8 add another tk element to the gallery view to show the current time
@@ -78,30 +78,14 @@ class CombinedApp:
         self.slideshow_manager.set_image_selection_queue(self.image_selection_queue)
         self.monitor_controller = MonitorController()
         self.sensor_reader = SensorReader()
+        
+        # self.media_manager = MediaManager(self.app.config['UPLOAD_FOLDER'], self.app.config['THUMBNAIL_FOLDER'], 200, 200)
+        
 
 
     def setup_flask_routes(self):
         @self.app.route(API.home_url, methods=['GET', 'POST'])
         def index():
-            # if request.method == 'POST':
-            #     if 'file' in request.files and request.files['file'].filename != '':
-            #         files = request.files.getlist('file')
-            #         for file in files:
-            #             filename = replace_webp_extension(file.filename)
-            #             file_path = os.path.join(self.app.config['UPLOAD_FOLDER'], filename)
-            #             file.save(file_path)
-            #             thumbnail_path = os.path.join(self.app.config['THUMBNAIL_FOLDER'], filename)
-            #             create_thumbnail(file_path, thumbnail_path)
-            #     elif 'image_url' in request.form and request.form['image_url'] != '':
-            #         image_url = request.form['image_url']
-            #         filename = save_remote_image(image_url, self.app.config['UPLOAD_FOLDER'])
-            #         filename = replace_webp_extension(filename)
-            #         if filename:
-            #             file_path = os.path.join(self.app.config['UPLOAD_FOLDER'], filename)
-            #             thumbnail_path = os.path.join(self.app.config['THUMBNAIL_FOLDER'], filename)
-            #             create_thumbnail(file_path, thumbnail_path)
-            #     return redirect(url_for('index'))
-
             # Get the list of files in the upload folder
             files = os.listdir(self.app.config['UPLOAD_FOLDER'])
             
@@ -132,7 +116,7 @@ class CombinedApp:
                 'auto_brightness': self.config_manager.config['auto_brightness'],
                 'auto_rotation': self.config_manager.config['auto_rotation'],
                 'current_brightness': self.monitor_controller.get_luminance(),
-                'slideshow_running': self.slideshow_manager.is_running(),
+                'slideshow_running': self.slideshow_manager.viewer.slideshow_active,
             }
             
             return render_template('index8.html', **params)
@@ -154,7 +138,7 @@ class CombinedApp:
             
             #receive an image in base64 format
             if base64_image is not None:
-                self.slideshow_manager.select_image_from_base64(base64_image)
+                self.slideshow_manager.viewer.select_image_from_base64(base64_image)
                 return '', 204
             else:
                 return "No image data provided", 400
@@ -182,6 +166,8 @@ class CombinedApp:
                         file_path = os.path.join(self.app.config['UPLOAD_FOLDER'], filename)
                         thumbnail_path = os.path.join(self.app.config['THUMBNAIL_FOLDER'], filename)
                         create_thumbnail(file_path, thumbnail_path)
+
+                self.slideshow_manager.viewer.add_image(os.path.join(self.app.root_path, self.app.config['UPLOAD_FOLDER'], filename))
                 return redirect(url_for('index'))
 
         @self.app.route(API.thumbnails, methods=['GET'])
@@ -207,6 +193,10 @@ class CombinedApp:
                 os.remove(file_path)
             if os.path.exists(thumbnail_path):
                 os.remove(thumbnail_path)
+            
+            full_path = os.path.join(self.app.config.root_path, self.app.config['UPLOAD_FOLDER'], filename)
+            #todo remove the image from the slideshow files list
+            self.slideshow_manager.viewer.remove_image(full_path)
             return redirect(url_for('index'))
 
         @self.app.route(API.select, methods=['POST'])
@@ -277,7 +267,7 @@ class CombinedApp:
                 self.config_manager.update_parameter('display_mode', display_mode)
                 self.config_manager.update_parameter('rotation', rotation)
                 self.config_manager.update_parameter('scale_mode', scale_mode)
-                self.slideshow_manager.update_parameters(media_orientation_filter=media_orientation_filter, 
+                self.slideshow_manager.viewer.update_parameters(media_orientation_filter=media_orientation_filter, 
                                                         display_mode=display_mode, 
                                                         rotation=rotation,
                                                         scale_mode=scale_mode)
@@ -314,34 +304,34 @@ class CombinedApp:
             
             self.config_manager.update_parameter('transition_duration', transition_duration)
             self.config_manager.update_parameter('frame_interval', frame_interval)
-            self.slideshow_manager.update_parameters(transition_duration=transition_duration, frame_interval=frame_interval)
+            self.slideshow_manager.viewer.update_parameters(transition_duration=transition_duration, frame_interval=frame_interval)
             slideshow_active = strtobool(request.form.get('slideshow_active'))
             if slideshow_active == True:
-                self.slideshow_manager.resume_slideshow()
+                self.slideshow_manager.viewer.resume_slideshow()
             elif slideshow_active == False:
-                self.slideshow_manager.pause_slideshow()
+                self.slideshow_manager.viewer.pause_slideshow()
             return redirect(url_for('index'))
 
         @self.app.route(API.slideshow_next, methods=['POST'])
         def slideshow_next():
-            self.slideshow_manager.next_image()
+            self.slideshow_manager.viewer.next_image()
             self.slideshow_manager.publish_current_image()
             return '', 204
 
         @self.app.route(API.slideshow_previous, methods=['POST'])
         def slideshow_previous():
-            self.slideshow_manager.previous_image()
+            self.slideshow_manager.viewer.previous_image()
             self.slideshow_manager.publish_current_image()
             return '', 204
 
         @self.app.route(API.slideshow_delete, methods=['POST'])
         def slideshow_delete():
-            self.slideshow_manager.delete_image()
+            self.slideshow_manager.viewer.delete_image()
             return redirect(url_for('index'))
 
         @self.app.route(API.slideshow_quit, methods=['POST'])
         def slideshow_quit():
-            self.slideshow_manager.quit_slideshow()
+            self.slideshow_manager.viewer.quit_slideshow()
             return redirect(url_for('index'))
 
         @self.app.route(API.configure_plex, methods=['POST'])
@@ -363,8 +353,8 @@ class CombinedApp:
                         image_url = f"http://{request.access_route[0]}:{self.config_manager.config['plex_port']}{thumb_url}.jpg"
                         try:
                             image = read_image_from_url(image_url)
-                            self.slideshow_manager.pause_slideshow()
-                            self.slideshow_manager.set_image(image, 1)
+                            self.slideshow_manager.viewer.pause_slideshow()
+                            self.slideshow_manager.viewer.set_image(image, 1)
                         except:
                             print(f"Failed to fetch image from Plex server on port {self.config_manager.config['plex_port']}")
                             print("Disabling Plex server integration")
@@ -372,7 +362,7 @@ class CombinedApp:
                             return '', 404
 
                 elif payload['event'] == 'media.stop' or payload['event'] == 'media.pause':
-                    self.slideshow_manager.resume_slideshow()
+                    self.slideshow_manager.viewer.resume_slideshow()
                 return '', 204
             return '', 204
 
@@ -381,14 +371,14 @@ class CombinedApp:
         previous_brightness = None
 
         while True:
-            if self.slideshow_manager.auto_rotate:
+            if self.config_manager.config['auto_rotation']:
                 accel = self.sensor_reader.read_bmi160_accel()
                 media_orientation_filter = accel_to_orientation(accel)
                 if media_orientation_filter != previous_media_orientation_filter:
-                    self.slideshow_manager.update_parameters(media_orientation_filter=media_orientation_filter)
+                    self.slideshow_manager.viewer.update_parameters(media_orientation_filter=media_orientation_filter)
                     previous_media_orientation_filter = media_orientation_filter
 
-            if self.slideshow_manager.auto_brightness:
+            if self.config_manager.config['auto_brightness']:
                 luminance = self.sensor_reader.read_veml7700_light()
                 brightness = luminance_to_brightness(luminance, max_value=2000)
                 if brightness != previous_brightness:
@@ -419,9 +409,7 @@ class CombinedApp:
     def shutdown(self):
         #todo: add a confirmation dialog
         self.monitor_controller.set_power_mode('off')
-        self.mqtt_client.loop_stop()
-        self.mqtt_client.disconnect()
-        self.slideshow_manager.quit_slideshow()
+        self.slideshow_manager.viewer.quit_slideshow()
         self.sensor_reader.stop()
         os.system("sudo shutdown -h now")
         
