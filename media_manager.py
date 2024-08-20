@@ -113,7 +113,6 @@ class ImageContainer:
     
     def process_image(self, target_height, target_width, scale_mode, angle):
         #do the processing of the image once
-        
         self.target_height = target_height
         self.target_width = target_width
         self.scale_mode = scale_mode
@@ -150,7 +149,7 @@ class MediaManager:
     
     ALLOWED_TYPES = ('.png', '.jpg', '.jpeg', '.bmp', '.webp')
     
-    def __init__(self, media_dir, thumbnail_dir=None, thumbnail_width=100, thumbnail_height=100):
+    def __init__(self, media_dir, thumbnail_dir=None, thumbnail_width=100, thumbnail_height=100) -> None:
         self.media_dir = media_dir
         self.thumbnail_dir = thumbnail_dir
         self.media_files: List[ImageContainer] = None
@@ -163,10 +162,13 @@ class MediaManager:
         #todo - implement the playlist and make it accessible to slideshow_manager and image_viewer
         self.playlist = Queue()     #queue to store the media files
         
-    def populate_media_files(self):
+    def to_list(self):
+        return [media.filename for media in self.media_files]
+        
+    def populate_media_files(self) -> None:
         self.media_files = self.load_media_files()
 
-    def load_media_files(self):
+    def load_media_files(self) -> List[ImageContainer]:
         media_files = []
         for file in os.listdir(self.media_dir):
             if file.lower().endswith(MediaManager.ALLOWED_TYPES):
@@ -174,25 +176,25 @@ class MediaManager:
                 media_files.append(img)
         return media_files
 
-    def get_next_media(self):
+    def get_next_media(self) -> ImageContainer:
         self.current_index = (self.current_index + 1) % len(self.playlist)
         self.current_media = self.playlist[self.current_index]
         return self.current_media
 
-    def get_prev_media(self):
+    def get_prev_media(self) -> ImageContainer:
         self.current_index = (self.current_index - 1) % len(self.playlist)
         self.current_media = self.playlist[self.current_index]
         return self.current_media
 
-    def get_current_media(self):
+    def get_current_media(self) -> ImageContainer:
         return self.current_media
 
-    def get_media_files(self):
+    def get_media_files(self) -> List[ImageContainer]:
         if self.media_files is None:
             self.populate_media_files()
         return self.media_files
     
-    def get_random_media(self):
+    def get_random_media(self) -> ImageContainer:
         # Filter out the current image
         available_media = [media for media in self.media_files if media != self.current_media]
         
@@ -206,22 +208,34 @@ class MediaManager:
         return self.current_media
     
     
-    def get_media_by_index(self, index):
+    def get_media_by_index(self, index) -> Optional[ImageContainer]:
+        if index < 0 or index >= len(self.media_files):
+            return None
         return self.media_files[index]
     
-    def get_media_by_filename(self, filename):
+    def get_media_by_filename(self, filename) -> Optional[ImageContainer]:
         for media in self.media_files:
             if media.filename == filename:
                 return media
         return None
     
-    def get_media_by_orientation(self, orientation):
+    def get_media_by_orientation(self, orientation) -> List[ImageContainer]:
         return [media for media in self.media_files if media.orientation == orientation]
     
-    def preprocess_media(self, target_height, target_width, scale_mode, angle):
+    def preprocess_media(self, target_height, target_width, scale_mode, angle) -> None:
         for media in self.media_files:
             media.process_image(target_height, target_width, scale_mode, angle)
-            
+
+    def get_blended_by_name(self, filename1, filename2, alpha) -> Optional[np.ndarray]:
+        media1 = self.get_media_by_filename(filename1)
+        media2 = self.get_media_by_filename(filename2)
+        return media1.blend_image(media2, alpha)
+
+    def get_blended_by_index(self, index1, index2, alpha) -> Optional[np.ndarray]:
+        media1 = self.get_media_by_index(index1)
+        media2 = self.get_media_by_index(index2)
+        return media1.blend_image(media2, alpha)
+
     
     
 if __name__ == '__main__':

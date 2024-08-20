@@ -74,8 +74,8 @@ class CombinedApp:
         self.slideshow_manager = SlideshowManager(os.path.join(os.path.dirname(os.path.abspath(__file__)), self.app.config['UPLOAD_FOLDER']),
                                                   config_manager=self.config_manager)
         
-        self.image_selection_queue = Queue()
-        self.slideshow_manager.set_image_selection_queue(self.image_selection_queue)
+        # self.image_selection_queue = Queue()
+        # self.slideshow_manager.set_image_selection_queue(self.image_selection_queue)
         self.monitor_controller = MonitorController()
         self.sensor_reader = SensorReader()
         
@@ -209,7 +209,9 @@ class CombinedApp:
             file_path = os.path.join(self.app.config['UPLOAD_FOLDER'], filename)
             if os.path.exists(file_path):
                 print(f"Selecting image {filename} at {time.time()}")
-                self.image_selection_queue.put(filename)
+                self.slideshow_manager.select_image(filename)
+                # self.image_selection_queue.put(filename)
+                #self.slideshow_manager.viewer.select_image(filename)       #this makes the frame flick to black or stops the transition - need to fix
             return '', 204
         
         @self.app.route(API.current_image_name, methods=['GET'])
@@ -315,13 +317,13 @@ class CombinedApp:
         @self.app.route(API.slideshow_next, methods=['POST'])
         def slideshow_next():
             self.slideshow_manager.viewer.next_image()
-            self.slideshow_manager.publish_current_image()
+            # self.slideshow_manager.publish_current_image()
             return '', 204
 
         @self.app.route(API.slideshow_previous, methods=['POST'])
         def slideshow_previous():
             self.slideshow_manager.viewer.previous_image()
-            self.slideshow_manager.publish_current_image()
+            # self.slideshow_manager.publish_current_image()
             return '', 204
 
         @self.app.route(API.slideshow_delete, methods=['POST'])
@@ -390,12 +392,9 @@ class CombinedApp:
     def run_flask(self):
         self.app.run(host='0.0.0.0', port=self.config_manager.config['web_interface_port'], debug=False, use_reloader=False)
 
-    def run_slideshow(self):
-        self.slideshow_manager.start_slideshow()        
-        
     def run(self):
         flask_thread = threading.Thread(target=self.run_flask)
-        slideshow_thread = threading.Thread(target=self.run_slideshow)
+        slideshow_thread = threading.Thread(target=self.slideshow_manager.start_slideshow)
         sensor_thread = threading.Thread(target=self.monitor_sensor)
 
         flask_thread.start()

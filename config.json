@@ -12,7 +12,7 @@
     "device_name": "office-canvas",
     "theme": "dark-theme",
     "rotation": 0,
-    "scale_mode": "fit",
+    "scale_mode": "fill",
     "plex_port": 32400,
     "allow_plex": true,
     "auto_brightness": false,

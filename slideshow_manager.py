@@ -1,7 +1,8 @@
 import json
 import os
+from queue import Queue
 from image_viewer import ImageViewer
-from config_manager import ConfigManager
+# from image_viewer2 import ImageViewer
 import paho.mqtt.client as mqtt
 
 from media_manager import MediaManager
@@ -15,28 +16,37 @@ class SlideshowManager:
         self.config_manager = config_manager
         self.folder = folder
         self.viewer = None
-        self.image_selection_queue = None
-        
+        self.image_selection_queue = Queue()
+        self.check_job = None
         self.mqtt_client = None
         self.mqtt_connected = False
         self.setup_mqtt_client()
 
-        self.media_manager = MediaManager(config_manager.config['image_folder'], config_manager.config['thumbnail_folder'], 200, 200)
 
     def get_current_image_name(self):
         if self.viewer:
             return self.viewer.current_image_name
         return ''
 
-    def set_image_selection_queue(self, queue):
-        self.image_selection_queue = queue
 
+    # def set_image_selection_queue(self, queue):
+        # self.image_selection_queue = queue
+
+    def select_image(self, filename):
+        self.image_selection_queue.put(filename)
+        self.viewer.root.after_cancel(self.check_job)
+        self.check_job = None
+        self.check_for_image_selection()
+        
+        # if self.viewer:
+            # self.viewer.select_image(filename)
+            
     def check_for_image_selection(self):
         if self.image_selection_queue and not self.image_selection_queue.empty():
             filename = self.image_selection_queue.get()
             self.viewer.select_image(filename)
         if self.viewer:
-            self.viewer.root.after(100, self.check_for_image_selection)
+            self.check_job = self.viewer.root.after(1000, self.check_for_image_selection)
 
     def start_slideshow(self):
         self.viewer = ImageViewer(self.folder, 
@@ -45,7 +55,7 @@ class SlideshowManager:
         self.publish_available_images()
         self.publish_current_config()
         
-        self.viewer.root.after(100, self.check_for_image_selection)
+        self.check_job = self.viewer.root.after(1000, self.check_for_image_selection)
         self.viewer.run()
 
     
@@ -170,6 +180,7 @@ class SlideshowManager:
 
     def publish_available_images(self, *args):
         files = self.viewer.images
+        # files = [os.path.basename(file.filename) for file in files]
         files = [os.path.basename(file) for file in files]
         self.publish_mqtt_message(f"{self.config_manager.config['mqtt_topic']}/available_images", json.dumps(files), retain=True)
 

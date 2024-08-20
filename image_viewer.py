@@ -5,6 +5,8 @@ import time
 # from watchdog.events import FileSystemEventHandler
 import tkinter as tk
 from PIL import ImageTk
+from config_manager import ConfigManager
+from media_manager import ImageContainer, MediaManager
 from utils import cv2_crop_center, cv2_rotate_image, cv2_to_pil, cv_resize_to_target, quick_read_image
 import cv2
 import numpy as np
@@ -46,10 +48,12 @@ class ImageViewer:
 
 
         self.images = []
+        self.media_manager = MediaManager(config_manager.config['image_folder'], config_manager.config['thumbnail_folder'], 200, 200)
+        self.media_files = self.media_manager.get_media_files()
         
         self.current_image_index = -1   #start at -1 so that the first image will be 0
         self.slideshow_active = True
-        self.transition_frames = 50
+        self.transition_frames = 30
 
         # self.transition_duration = transition_duration
         self.transition_step = 0
@@ -80,6 +84,11 @@ class ImageViewer:
 
         self.scan_folder()
         
+        self.media_manager.preprocess_media(self.screen_height, 
+                                            self.screen_width, 
+                                            self.scale_mode, 
+                                            self.rotation)
+        
         # self.observer = Observer()
         # self.observer.schedule(ImageHandler(self.add_image, self.remove_image), self.folder_to_watch, recursive=False)
         # self.observer.start()
@@ -93,8 +102,9 @@ class ImageViewer:
         self.root.bind('.', self.next_image)
 
         if self.current_displayed_image is None:
-            self.current_displayed_image = quick_read_image(self.images[0])
-            self.current_displayed_image = cv2.resize(self.current_displayed_image, (self.screen_width, self.screen_height))
+            self.current_displayed_image = self.media_manager.get_media_by_index(0).get_processed_image()
+            # self.current_displayed_image = quick_read_image(self.images[0])
+            # self.current_displayed_image = cv2.resize(self.current_displayed_image, (self.screen_width, self.screen_height))
 
         self.root.focus_set()
 
@@ -451,11 +461,7 @@ class ImageViewer:
     #     self.observer.join()
 
 if __name__ == '__main__':
+    config_manager = ConfigManager('config.json')  
     viewer = ImageViewer(folder_to_watch='images', 
-                         frame_interval=2, 
-                         transition_duration=1, 
-                         media_orientation_filter='both', 
-                         display_mode='windowed', 
-                         rotation=0,
-                         scale_mode='fit')
+                         config_manager=config_manager)
     viewer.run()
