@@ -8,6 +8,7 @@ from utils import cv2_crop_center, read_image_from_url, quick_read_image, cv_res
 from typing import List, Optional
 from enum import Enum
 from queue import Queue
+import random
 
 
 class ImageContainer:
@@ -15,29 +16,40 @@ class ImageContainer:
     DEFAULT_THUMBNAIL_DIR = 'thumbnails'
     
     class Orientation(Enum):
-        UNSET = 'unset'
+        UNSET = 'square'
         PORTRAIT = 'portrait'
         LANDSCAPE = 'landscape'
+        
+        def __eq__(self, value: object) -> bool:
+            return super().__eq__(value)
+        
+        def __str__(self) -> str:
+            return self.value
         
     class ScaleMode(Enum):
         UNSET = 'unset'
         FILL = 'fill'
         FIT = 'fit'
+        
+        def __eq__(self, value: object) -> bool:
+            return super().__eq__(value)
+    
+        def __str__(self) -> str:
+            return self.value
     
     #this class ImageContainer is responsible for reading file with opencv and storing the image object in the memory
     #it will keep a record of the orientation of the image 
     #it will keep the original image object and the resized image object
-    def __init__(self, file_path, thumbnail_dir=None, thumbnail_width=100, thumbnail_height=100):
-        
+    def __init__(self) -> None:
         #strings
-        self.file_path: str = file_path
-        self.filename = os.path.basename(file_path)
-
+        self.file_path: str = None
+        self.filename = None
+        
         #image data
-        self.image = cv2.imread(file_path)
+        self.image: np.ndarray = None
         self.thumbnail: np.ndarray = None
         self.processed_image: np.ndarray = None
-
+        
         #properties
         self.orientation = ImageContainer.Orientation.UNSET
         self.is_portrait: bool = False
@@ -45,22 +57,74 @@ class ImageContainer:
         self.target_width: int = 0
         self.scale_mode = ImageContainer.ScaleMode.UNSET
         self.rotation = 0
-        self.thumbnail_height = thumbnail_height
-        self.thumbnail_width = thumbnail_width
-        
-        #default actions
-        self.check_for_thumbnail(thumbnail_dir)         #check if thumbnail exists, if not create one
-        self.populate_properties()                      #populate the properties of the image
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, ImageContainer):
             return False
         return self.filename == other.filename
 
+    def from_file(self, file_path, thumbnail_dir=None, thumbnail_width=100, thumbnail_height=100):
+        
+        #strings
+        self.file_path: str = file_path
+        self.filename = os.path.basename(file_path)
+
+        #image data
+        self.image = cv2.imread(file_path)
+
+        #properties
+        self.thumbnail_height = thumbnail_height
+        self.thumbnail_width = thumbnail_width
+        
+        #default actions
+        self.check_for_thumbnail(thumbnail_dir)         #check if thumbnail exists, if not create one
+        self.populate_properties()                      #populate the properties of the image
+        return self
+
+    def from_url(self, url, thumbnail_dir=None, thumbnail_width=100, thumbnail_height=100):
+            
+            #strings
+            self.file_path: str = url
+            self.filename = os.path.basename(url)
+    
+            #image data
+            self.image = read_image_from_url(url)
+    
+            #properties
+            self.thumbnail_height = thumbnail_height
+            self.thumbnail_width = thumbnail_width
+            
+            #default actions
+            # self.check_for_thumbnail(thumbnail_dir)       #TODO decide what to do with the thumbnail
+            self.populate_properties()                      #populate the properties
+            return self
+
+    def from_image(self, image, thumbnail_dir=None, thumbnail_width=100, thumbnail_height=100):
+            
+            #strings
+            self.file_path: str = 'image'
+            self.filename = 'image'
+            
+            #image data
+            self.image = image
+
+            self.thumbnail_height = thumbnail_height
+            self.thumbnail_width = thumbnail_width
+            
+            #default actions
+            #self.check_for_thumbnail(thumbnail_dir)        #TODO decide what to do with the thumbnail
+            self.populate_properties()                      #populate the properties
+            return self
+
+
     def check_processing_parameters(self, target_height, target_width, scale_mode, angle):
         #if the processing parameters are different from the current processing parameters, then reprocess the image
         #this is to avoid reprocessing the image if the processing parameters are the same
         #but if the processing parameters are different, then reprocess the image
+        
+        if isinstance(scale_mode, ImageContainer.ScaleMode):
+            scale_mode = scale_mode.value
+        
         if self.target_height != target_height or self.target_width != target_width or self.scale_mode != scale_mode or self.rotation != angle:
             self.process_image(target_height, target_width, scale_mode, angle)
         
@@ -125,19 +189,19 @@ class ImageContainer:
         self.processed_image = cv2_crop_center(self.processed_image, (self.target_height, self.target_width))
         return self.processed_image
 
-    def blend_image(self, image, alpha):
-        if self.processed_image is None:
-            return image
-        if image is None:
-            return self.processed_image
+    def blend_image(self, image: 'ImageContainer', alpha: float) -> Optional[np.ndarray]:
+        # if self.processed_image is None:
+        #     return image.processed_image
+
         if alpha == 0:
             return self.processed_image
         if alpha == 1:
-            return image
-        if image.shape != self.processed_image.shape:
-            image = cv_resize_to_target_size(image, self.processed_image.shape[0], self.processed_image.shape[1], self.scale_mode)
+            return image.processed_image
+        
+        if image.processed_image.shape != self.processed_image.shape:
+            image.process_image(self.processed_image.shape[0], self.processed_image.shape[1], self.scale_mode, self.rotation)
 
-        return cv2.addWeighted(self.processed_image, alpha, image, 1 - alpha, 0)
+        return cv2.addWeighted(self.processed_image, alpha, image.processed_image, 1 - alpha, 0)
 
 
 #this class MediaManager is responsible for managing the media files
@@ -167,61 +231,79 @@ class MediaManager:
         
     def populate_media_files(self) -> None:
         self.media_files = self.load_media_files()
+        
+    def create_playlist(self, media_files=None) -> None:
+        if media_files is None:
+            if self.media_files is None:
+                self.populate_media_files()
+            media_files = self.media_files
+            
+        for media in media_files:
+            self.playlist.put(media)
 
     def load_media_files(self) -> List[ImageContainer]:
         media_files = []
         for file in os.listdir(self.media_dir):
             if file.lower().endswith(MediaManager.ALLOWED_TYPES):
-                img = ImageContainer(os.path.join(self.media_dir, file), self.thumbnail_dir, self.thumbnail_width, self.thumbnail_height)
+                img = ImageContainer()
+                img.from_file(os.path.join(self.media_dir, file), self.thumbnail_dir, self.thumbnail_width, self.thumbnail_height)
                 media_files.append(img)
         return media_files
 
     def get_next_media(self) -> ImageContainer:
-        self.current_index = (self.current_index + 1) % len(self.playlist)
-        self.current_media = self.playlist[self.current_index]
+        self.current_index = (self.current_index + 1) % len(self.media_files)
+        self.current_media = self.media_files[self.current_index]
         return self.current_media
 
     def get_prev_media(self) -> ImageContainer:
-        self.current_index = (self.current_index - 1) % len(self.playlist)
-        self.current_media = self.playlist[self.current_index]
+        self.current_index = (self.current_index - 1) % len(self.media_files)
+        self.current_media = self.media_files[self.current_index]
         return self.current_media
 
     def get_current_media(self) -> ImageContainer:
         return self.current_media
 
-    def get_media_files(self) -> List[ImageContainer]:
+    def get_media_files(self, orientation=None) -> List[ImageContainer]:
         if self.media_files is None:
             self.populate_media_files()
+            
+        if orientation is not None:
+            return self.get_media_by_orientation(orientation)
+            
         return self.media_files
     
-    def get_random_media(self) -> ImageContainer:
+    def get_random_media(self, orientation=None) -> ImageContainer:
+        if orientation is not None:
+            media_files = self.get_media_by_orientation(orientation)
+        else:
+            media_files = self.media_files
+        
         # Filter out the current image
-        available_media = [media for media in self.media_files if media != self.current_media]
+        available_media = [media for media in media_files if media != self.current_media]
         
         # If no other media is available, just pick a random media file
         if not available_media:
-            self.current_media = random.choice(self.media_files)
+            self.current_media = None
         else:
             # Select a random media file from the available media
             self.current_media = random.choice(available_media)
 
         return self.current_media
-    
-    
+
+    def get_media_by_orientation(self, orientation) -> List[ImageContainer]:
+        return [media for media in self.media_files if media.orientation == orientation]
+
     def get_media_by_index(self, index) -> Optional[ImageContainer]:
         if index < 0 or index >= len(self.media_files):
             return None
         return self.media_files[index]
-    
+
     def get_media_by_filename(self, filename) -> Optional[ImageContainer]:
         for media in self.media_files:
             if media.filename == filename:
                 return media
         return None
-    
-    def get_media_by_orientation(self, orientation) -> List[ImageContainer]:
-        return [media for media in self.media_files if media.orientation == orientation]
-    
+
     def preprocess_media(self, target_height, target_width, scale_mode, angle) -> None:
         for media in self.media_files:
             media.process_image(target_height, target_width, scale_mode, angle)
@@ -236,78 +318,67 @@ class MediaManager:
         media2 = self.get_media_by_index(index2)
         return media1.blend_image(media2, alpha)
 
-    
-    
+
+
 if __name__ == '__main__':
     media_dir = 'images'
     thumbnail_dir = 'thumbnails'
     media_manager = MediaManager(media_dir, thumbnail_dir, 200, 200)
     media_files = media_manager.get_media_files()
-    print(len(media_files))
-    for media in media_files:
-        print(media.filename)
-        print(media.orientation)
-        print(media.is_portrait)
-        print(media.height, media.width)
-        print(media.thumbnail_path)
-        print(media.get_thumbnail().shape)
-        print(media.get_image().shape)
-        print('---------------------------------')
-    print('---------------------------------')
-    print('---------------------------------')
-    print('---------------------------------')
-    media_manager.preprocess_media(1080, 1920, ImageContainer.ScaleMode.FIT.value, 0)
-    for media in media_files:
-        print(media.filename)
-        print(media.orientation)
-        print(media.is_portrait)
-        print(media.height, media.width)
-        print(media.thumbnail_path)
-        print(media.get_thumbnail().shape)
-        print(media.get_image().shape) 
-        print(media.get_processed_image().shape)
-        cv2.imshow('image', media.get_processed_image())
-        cv2.waitKey(100)
-        print('---------------------------------')
-    print('---------------------------------')
-    print('---------------------------------')
-    print('---------------------------------')
+    # print(len(media_files))
+    # for media in media_files:
+    #     print(media.filename)
+    #     print(media.orientation)
+    #     print(media.is_portrait)
+    #     print(media.height, media.width)
+    #     print(media.thumbnail_path)
+    #     print(media.get_thumbnail().shape)
+    #     print(media.get_image().shape)
+    #     print('---------------------------------')
+    # print('---------------------------------')
+
+    # media_manager.preprocess_media(1080, 1920, ImageContainer.ScaleMode.FIT.value, 0)
+    # for media in media_files:
+    #     print(media.filename)
+    #     print(media.orientation)
+    #     print(media.is_portrait)
+    #     print(media.height, media.width)
+    #     print(media.thumbnail_path)
+    #     print(media.get_thumbnail().shape)
+    #     print(media.get_image().shape) 
+    #     print(media.get_processed_image().shape)
+    #     cv2.imshow('image', media.get_processed_image())
+    #     cv2.waitKey(100)
+    #     print('---------------------------------')
+    # print('---------------------------------')
+
     
     
-    for media in media_files:
-        media.check_processing_parameters(1080, 1920, ImageContainer.ScaleMode.FIT.value, 90)
-        print(media.filename)
-        print(media.orientation)
-        print(media.is_portrait)
-        print(media.height, media.width)
-        print(media.thumbnail_path)
-        print(media.get_thumbnail().shape)
-        print(media.get_image().shape) 
-        print(media.get_processed_image().shape)
-        cv2.imshow('image', media.get_processed_image())
-        cv2.waitKey(100)
-        print('---------------------------------')
-    print('---------------------------------')
-    print('---------------------------------')
-    print('---------------------------------')
+    # for media in media_files:
+    #     media.check_processing_parameters(1080, 1920, ImageContainer.ScaleMode.FIT.value, 90)
+    #     print(media.filename)
+    #     print(media.orientation)
+    #     print(media.is_portrait)
+    #     print(media.height, media.width)
+    #     print(media.thumbnail_path)
+    #     print(media.get_thumbnail().shape)
+    #     print(media.get_image().shape) 
+    #     print(media.get_processed_image().shape)
+    #     cv2.imshow('image', media.get_processed_image())
+    #     cv2.waitKey(100)
+    #     print('---------------------------------')
+    # print('---------------------------------')
+
     
     
     while True:
         media = media_manager.get_random_media()
-        media.check_processing_parameters(1080, 1920, ImageContainer.ScaleMode.FIT.value, 0)
-        print(media.filename)
-        print(media.orientation)
-        print(media.is_portrait)
-        print(media.height, media.width)
-        print(media.thumbnail_path)
-        print(media.get_thumbnail().shape)
-        print(media.get_image().shape) 
-        print(media.get_processed_image().shape)
-        cv2.imshow('image', media.get_processed_image())
+        media2 = media_manager.get_random_media()
+        
+        media.check_processing_parameters(1080, 1920, random.choice([ImageContainer.ScaleMode.FIT, ImageContainer.ScaleMode.FILL]), random.choice([0, 90, 180, 270]))
+        media2.check_processing_parameters(1080, 1920, random.choice([ImageContainer.ScaleMode.FIT, ImageContainer.ScaleMode.FILL]), random.choice([0, 90, 180, 270]))
+        cv2.imshow('image', media.blend_image(media2, 0.5))
         key = cv2.waitKey(0)
         if key == ord('q') or key == 27:
             break
-        print('---------------------------------')
-        print('---------------------------------')
-        print('---------------------------------')
         print('---------------------------------')

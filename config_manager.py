@@ -47,8 +47,7 @@ class ConfigManager:
         if key == 'device_name':
             return isinstance(value, str) and len(value) > 0
         if key == 'mqtt_topic':
-            return isinstance(value, str) and len(value) > 0
-        
+            return isinstance(value, str) and len(value) > 0        
         if key == 'mqtt_broker':
             try:
                 ipaddress.ip_address(value)
