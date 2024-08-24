@@ -62,6 +62,9 @@ class ConfigManager:
         self.config_file_path = config_file_path            # Path to the configuration file
         self.config = self.load_config()                    # Load the configuration from the JSON file
         
+    def __str__(self) -> str:
+        return str(self.config)
+        
     def populate_defaults(self):
         """Populate the default configuration values."""
         default_config = {

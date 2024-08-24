@@ -55,8 +55,8 @@ class ImageViewer:
         self._slideshow_active = True
         self._frame_interval = 0
         self._transition_duration = 0
-        self._scheduled_id = None
-        self._transition_id = None
+        self._next_image_job_id = None
+        self._transition_job_id = None
         
         # the current image as ImageContainer
         self.current_image: ImageContainer = None
@@ -79,12 +79,11 @@ class ImageViewer:
                                             self.rotation)
         
         #set the initial image
-        # self.canvas_image = self.media_manager.get_media_by_index(0)
         self.current_image = self.media_manager.get_media_by_index(0)
         self.canvas_image = self.current_image.get_processed_image()
         self.update_canvas()
-        # self.render_image(self.current_image.get_processed_image())
-        
+
+        self.image_change_callback = None
         
     def create_ui(self):
         self.root = tk.Tk()
@@ -196,25 +195,31 @@ class ImageViewer:
     
     
     @property
-    def scheduled_id(self):
-        return self._scheduled_id
+    def next_image_job_id(self):
+        return self._next_image_job_id
     
-    @scheduled_id.setter
-    def scheduled_id(self, id):
-        if self._scheduled_id is not None:
-            self.root.after_cancel(self._scheduled_id)
-        self._scheduled_id = id
+    @next_image_job_id.setter
+    def next_image_job_id(self, id):
+        if self._next_image_job_id is not None:
+            self.root.after_cancel(self._next_image_job_id)
+        self._next_image_job_id = id
     
     
     @property
-    def transition_id(self):
-        return self._transition_id
+    def transition_job_id(self):
+        return self._transition_job_id
     
-    @transition_id.setter
-    def transition_id(self, id):
-        if self._transition_id is not None:
-            self.root.after_cancel(self._transition_id)
-        self._transition_id = id
+    @transition_job_id.setter
+    def transition_job_id(self, id):
+        if self._transition_job_id is not None:
+            self.root.after_cancel(self._transition_job_id)
+        self._transition_job_id = id
+    
+    
+    @property
+    def current_image_name(self):
+        return self.current_image.filename
+    
     
     
     def toggle_fullscreen(self, event=None):
@@ -232,6 +237,28 @@ class ImageViewer:
     def rotate_image(self, event=None):
         self.rotation = (self.rotation + 90) % 360
            
+           
+    def update_parameters(self, display_mode=None, scale_mode=None, rotation=None, frame_interval=None, transition_duration=None,
+                          auto_brightness=None, auto_rotation=None, media_orientation_filter=None):
+        if display_mode is not None:
+            self.display_mode = display_mode
+        if scale_mode is not None:
+            self.scale_mode = scale_mode
+        if rotation is not None:
+            self.rotation = rotation
+        if frame_interval is not None:
+            self.frame_interval = frame_interval
+        if transition_duration is not None:
+            self.transition_duration = transition_duration
+        if auto_brightness is not None:
+            self.auto_brightness = auto_brightness
+        if auto_rotation is not None:
+            self.auto_rotation = auto_rotation
+        if media_orientation_filter is not None:
+            self.media_orientation_filter = media_orientation_filter
+        
+           
+           
     def update_canvas(self):
         '''
         Update the current displayed image
@@ -243,18 +270,23 @@ class ImageViewer:
         self.canvas.image = photo
     
     def select_image(self, image_name):
-        pass
+        #find the image from the MediaManager with the matching name
+        self.next_image_job_id = None
+        self.transition_job_id = None
+        image = self.media_manager.get_media_by_filename(image_name)
+        image.check_processing_parameters(self.screen_height, self.screen_width, self.scale_mode, self.rotation)
+        self.fade_to_image(image, self.transition_duration)
     
     def select_image_from_base64(self, base64_image):
         pass
     
     def fade_to_image(self, to_image: ImageContainer, duration: float):
+        self.current_image = to_image
         self.fade_in_progress = True
         self.fade_start_time = time.time()
         self.fade_from_image = self.canvas_image
         self.target_image = to_image.get_processed_image()
         self.fade_duration = duration
-
         self._fade_step()
 
     def _fade_step(self):
@@ -274,9 +306,10 @@ class ImageViewer:
         self.update_canvas()
 
         if progress < 1.0:
-            self.transition_id = self.root.after(33, self._fade_step)  # Approximately 30 FPS
+            self.transition_job_id = self.root.after(33, self._fade_step)  # Approximately 30 FPS
         else:
             self.fade_in_progress = False
+            self.next_image_job_id = self.root.after(int(self.frame_interval * 1000), self.show_next_image)
             # self.current_image = self.target_image
         
     def quit_app(self, event=None):
@@ -288,14 +321,14 @@ class ImageViewer:
     
     def pause_slideshow(self, event=None):  
         self.slideshow_active = False
-        self.scheduled_id = None
+        self.next_image_job_id = None
         
     def play_slideshow(self, event=None):
-        if self.slideshow_active and self.scheduled_id is not None:
+        if self.slideshow_active and self.next_image_job_id is not None:
             #slideshow is already running and a scheduled id is set
             return
         self.slideshow_active = True
-        self.scheduled_id = self.root.after(int(self.frame_interval * 1000), self.show_next_image)
+        self.next_image_job_id = self.root.after(int(self.frame_interval * 1000), self.show_next_image)
     
     def show_next_image(self, event=None):
         self.next_image = self.media_manager.get_next_media()
@@ -305,7 +338,7 @@ class ImageViewer:
         
         self.current_image = self.next_image
         if self.slideshow_active:
-            self.scheduled_id = self.root.after(int(self.frame_interval * 1000), self.show_next_image)
+            self.next_image_job_id = self.root.after(int(self.frame_interval * 1000), self.show_next_image)
 
     def show_previous_image(self, event=None):
         self.next_image = self.media_manager.get_prev_media()
@@ -315,7 +348,7 @@ class ImageViewer:
         
         self.current_image = self.next_image
         if self.slideshow_active:
-            self.scheduled_id = self.root.after(int(self.frame_interval * 1000), self.show_next_image)
+            self.next_image_job_id = self.root.after(int(self.frame_interval * 1000), self.show_next_image)
         
     def quit_slideshow(self):
         pass

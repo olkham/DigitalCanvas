@@ -1,8 +1,9 @@
 import json
 import os
 from queue import Queue
-from image_viewer import ImageViewer
+# from image_viewer import ImageViewer
 # from image_viewer2 import ImageViewer
+from image_viewer3 import ImageViewer
 import paho.mqtt.client as mqtt
 
 from media_manager import MediaManager
@@ -49,8 +50,7 @@ class SlideshowManager:
             self.check_job = self.viewer.root.after(1000, self.check_for_image_selection)
 
     def start_slideshow(self):
-        self.viewer = ImageViewer(self.folder, 
-                                   self.config_manager)
+        self.viewer = ImageViewer(self.config_manager)
         self.viewer.image_change_callback = self.publish_current_image
         self.publish_available_images()
         self.publish_current_config()
@@ -179,9 +179,11 @@ class SlideshowManager:
         self.publish_mqtt_message(f"{self.config_manager.config['mqtt_topic']}/config", json.dumps(self.config_manager.config))
 
     def publish_available_images(self, *args):
-        files = self.viewer.images
-        # files = [os.path.basename(file.filename) for file in files]
-        files = [os.path.basename(file) for file in files]
+        # files = self.viewer.images
+        # files = [os.path.basename(file) for file in files]
+        
+        files = self.viewer.media_manager.get_media_files()
+        files = [os.path.basename(file.filename) for file in files]
         self.publish_mqtt_message(f"{self.config_manager.config['mqtt_topic']}/available_images", json.dumps(files), retain=True)
 
     

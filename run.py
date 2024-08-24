@@ -209,9 +209,7 @@ class CombinedApp:
             file_path = os.path.join(self.app.config['UPLOAD_FOLDER'], filename)
             if os.path.exists(file_path):
                 print(f"Selecting image {filename} at {time.time()}")
-                self.slideshow_manager.select_image(filename)
-                # self.image_selection_queue.put(filename)
-                #self.slideshow_manager.viewer.select_image(filename)       #this makes the frame flick to black or stops the transition - need to fix
+                self.slideshow_manager.viewer.select_image(filename)
             return '', 204
         
         @self.app.route(API.current_image_name, methods=['GET'])
