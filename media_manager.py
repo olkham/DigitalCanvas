@@ -192,6 +192,7 @@ class ImageContainer:
     def blend_image(self, image: 'ImageContainer', alpha: float) -> Optional[np.ndarray]:
         # if self.processed_image is None:
         #     return image.processed_image
+        # alpha 0 means only the current image, alpha 1 means only the new image
 
         if alpha == 0:
             return self.processed_image
@@ -210,7 +211,7 @@ class ImageContainer:
 #it will be responsible for storing the Image objects in the memory
 
 class MediaManager:
-    
+
     ALLOWED_TYPES = ('.png', '.jpg', '.jpeg', '.bmp', '.webp')
     
     def __init__(self, media_dir, thumbnail_dir=None, thumbnail_width=100, thumbnail_height=100) -> None:

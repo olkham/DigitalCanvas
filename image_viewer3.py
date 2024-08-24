@@ -56,10 +56,12 @@ class ImageViewer:
         self._frame_interval = 0
         self._transition_duration = 0
         self._scheduled_id = None
+        self._transition_id = None
         
         # the current image as ImageContainer
-        self.current_image = None
-        
+        self.current_image: ImageContainer = None
+        self.canvas_image: np.ndarray = None
+
         # make the UI
         self.create_ui()
 
@@ -77,8 +79,11 @@ class ImageViewer:
                                             self.rotation)
         
         #set the initial image
+        # self.canvas_image = self.media_manager.get_media_by_index(0)
         self.current_image = self.media_manager.get_media_by_index(0)
-        self.render_image(self.current_image.get_processed_image())
+        self.canvas_image = self.current_image.get_processed_image()
+        self.update_canvas()
+        # self.render_image(self.current_image.get_processed_image())
         
         
     def create_ui(self):
@@ -107,6 +112,7 @@ class ImageViewer:
         self.root.bind('s', self.toggle_scale_mode)
         self.root.bind('p', self.pause_slideshow)
         self.root.bind('r', self.play_slideshow)
+        self.root.bind('a', self.rotate_image)
         self.root.focus_set()
 
     
@@ -140,8 +146,8 @@ class ImageViewer:
                 self._scale_mode = mode
                 self.config_manager.update_parameter('scale_mode', mode)
                 if self.current_image is not None:
-                    self.show_image(self.current_image)
-
+                    self.current_image.check_processing_parameters(self.screen_height, self.screen_width, self.scale_mode, self.rotation)
+                    self.fade_to_image(self.current_image, self.transition_duration)
 
     @property
     def rotation(self):
@@ -154,8 +160,9 @@ class ImageViewer:
                 self._rotation = rotation
                 self.config_manager.update_parameter('rotation', rotation)
                 if self.current_image is not None:
-                    self.show_image(self.current_image)
-
+                    self.current_image.check_processing_parameters(self.screen_height, self.screen_width, self.scale_mode, self.rotation)
+                    self.fade_to_image(self.current_image, self.transition_duration)
+                    
 
     @property
     def slideshow_active(self):
@@ -169,8 +176,7 @@ class ImageViewer:
                     self._slideshow_active = True
                 else:
                     self._slideshow_active = False
-                
-    
+
     
     @property
     def frame_interval(self):
@@ -200,27 +206,37 @@ class ImageViewer:
         self._scheduled_id = id
     
     
+    @property
+    def transition_id(self):
+        return self._transition_id
+    
+    @transition_id.setter
+    def transition_id(self, id):
+        if self._transition_id is not None:
+            self.root.after_cancel(self._transition_id)
+        self._transition_id = id
+    
+    
     def toggle_fullscreen(self, event=None):
         if self.display_mode == "fullscreen":
             self.display_mode = "windowed"
         else:    
             self.display_mode = "fullscreen"
             
-
     def toggle_scale_mode(self, event=None):
         if self.scale_mode == "fit":
             self.scale_mode = "fill"
         else:
             self.scale_mode = "fit"
     
-    
-    def render_image(self, image):
+    def rotate_image(self, event=None):
+        self.rotation = (self.rotation + 90) % 360
+           
+    def update_canvas(self):
         '''
         Update the current displayed image
         '''
-        self.current_displayed_image = image
-        self.blended_image = image
-        photo = ImageTk.PhotoImage(cv2_to_pil(image))
+        photo = ImageTk.PhotoImage(cv2_to_pil(self.canvas_image))
         self.canvas.delete("all")
         width, height = photo.width(), photo.height()
         self.canvas.create_image(width // 2, height // 2, anchor=tk.CENTER, image=photo)
@@ -231,17 +247,37 @@ class ImageViewer:
     
     def select_image_from_base64(self, base64_image):
         pass
+    
+    def fade_to_image(self, to_image: ImageContainer, duration: float):
+        self.fade_in_progress = True
+        self.fade_start_time = time.time()
+        self.fade_from_image = self.canvas_image
+        self.target_image = to_image.get_processed_image()
+        self.fade_duration = duration
 
-    def cross_fade(self, image1:ImageContainer, image2:ImageContainer, alpha):
-        #blend the two images together
-        blended_image = image1.blend_image(image2, alpha)
-        self.render_image(blended_image)
-    
-    def show_image(self, image: ImageContainer):
-        image.check_processing_parameters(self.screen_height, self.screen_width, self.scale_mode, self.rotation)
-        self.render_image(image.get_processed_image())
-        self.current_image = image
-    
+        self._fade_step()
+
+    def _fade_step(self):
+        if not self.fade_in_progress:
+            return
+
+        current_time = time.time()
+        elapsed_time = current_time - self.fade_start_time
+        progress = min(elapsed_time / self.fade_duration, 1.0)
+
+        self.canvas_image = cv2.addWeighted(
+            self.fade_from_image, 1 - progress,
+            self.target_image, progress,
+            0
+        )
+
+        self.update_canvas()
+
+        if progress < 1.0:
+            self.transition_id = self.root.after(33, self._fade_step)  # Approximately 30 FPS
+        else:
+            self.fade_in_progress = False
+            # self.current_image = self.target_image
         
     def quit_app(self, event=None):
         self.root.quit()
@@ -255,24 +291,31 @@ class ImageViewer:
         self.scheduled_id = None
         
     def play_slideshow(self, event=None):
+        if self.slideshow_active and self.scheduled_id is not None:
+            #slideshow is already running and a scheduled id is set
+            return
         self.slideshow_active = True
-        if self.slideshow_active:
-            self.scheduled_id = self.root.after(int(self.frame_interval * 1000), self.show_next_image)
+        self.scheduled_id = self.root.after(int(self.frame_interval * 1000), self.show_next_image)
     
     def show_next_image(self, event=None):
         self.next_image = self.media_manager.get_next_media()
         self.next_image.check_processing_parameters(self.screen_height, self.screen_width, self.scale_mode, self.rotation)
-        self.render_image(self.next_image.get_processed_image())
-        self.current_image = self.next_image
         
+        self.fade_to_image(self.next_image, self.transition_duration)
+        
+        self.current_image = self.next_image
         if self.slideshow_active:
             self.scheduled_id = self.root.after(int(self.frame_interval * 1000), self.show_next_image)
 
     def show_previous_image(self, event=None):
         self.next_image = self.media_manager.get_prev_media()
         self.next_image.check_processing_parameters(self.screen_height, self.screen_width, self.scale_mode, self.rotation)
-        self.render_image(self.next_image.get_processed_image())
+        
+        self.fade_to_image(self.next_image, self.transition_duration)
+        
         self.current_image = self.next_image
+        if self.slideshow_active:
+            self.scheduled_id = self.root.after(int(self.frame_interval * 1000), self.show_next_image)
         
     def quit_slideshow(self):
         pass

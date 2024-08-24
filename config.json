@@ -1,10 +1,10 @@
 {
     "image_folder": "images",
     "thumbnail_folder": "thumbnails",
-    "frame_interval": 2,
+    "frame_interval": 10,
     "transition_duration": 1,
     "media_orientation_filter": "both",
-    "display_mode": "fullscreen",
+    "display_mode": "windowed",
     "web_interface_port": 7000,
     "mqtt_broker": "192.168.1.138",
     "mqtt_port": 1883,
