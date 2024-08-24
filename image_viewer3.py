@@ -263,11 +263,27 @@ class ImageViewer:
         '''
         Update the current displayed image
         '''
+        # photo = ImageTk.PhotoImage(cv2_to_pil(self.canvas_image))
+        # self.canvas.delete("all")
+        # width, height = photo.width(), photo.height()
+        # self.canvas.create_image(width // 2, height // 2, anchor=tk.CENTER, image=photo)
+        # self.canvas.image = photo
+
         photo = ImageTk.PhotoImage(cv2_to_pil(self.canvas_image))
-        self.canvas.delete("all")
         width, height = photo.width(), photo.height()
-        self.canvas.create_image(width // 2, height // 2, anchor=tk.CENTER, image=photo)
-        self.canvas.image = photo
+
+        # Check if an image already exists on the canvas
+        if hasattr(self.canvas, 'image_id'):
+            # Update the existing image
+            self.canvas.itemconfig(self.canvas.image_id, image=photo)
+        else:
+            # Create a new image if it doesn't exist
+            self.canvas.image_id = self.canvas.create_image(width // 2, height // 2, anchor=tk.CENTER, image=photo)
+
+        # Store the reference to the photo to prevent garbage collection
+        self.canvas.image = photo    
+    
+    
     
     def select_image(self, image_name):
         #find the image from the MediaManager with the matching name
