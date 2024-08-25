@@ -22,11 +22,7 @@ from sensors2 import SensorReader
 # log.setLevel(logging.ERROR)
 
 # todo
-#1 improve performance of the portraint/landscape icon on the gallery view
-#2 build in the clock map
 #3 add another tk element to the gallery view to show the current time
-
-#4 add a time schedule to turn the display on and off
 #6 add accelerometer range calibration
 
 
@@ -82,7 +78,6 @@ class CombinedApp:
         self.sensor_reader = SensorReader()
 
         self.on_trigger = False
-        self.off_trigger = False
 
     def setup_flask_routes(self):
         
