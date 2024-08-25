@@ -101,6 +101,9 @@ class SensorReader:
     def close(self):
         # No explicit close method needed for these libraries
         pass
+    
+    def stop(self):
+        self.close()
 
 # Example usage
 if __name__ == "__main__":

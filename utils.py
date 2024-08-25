@@ -50,6 +50,9 @@ def save_remote_image(image_url, upload_folder, size=None):
         return None
     
 def create_thumbnails_for_existing_images(images, thumbs):
+    check_and_create(images)
+    check_and_create(thumbs)
+    
     for filename in os.listdir(images):
         file_path = os.path.join(images, filename)
         thumbnail_path = os.path.join(thumbs, filename)
@@ -382,6 +385,21 @@ def pil_to_cv2(pil_img):
     cv2_img = cv2.cvtColor(cv2_img, cv2.COLOR_RGB2BGR)
     return cv2_img
 
+def list_files(directory, extensions=None, include_paths=False):
+    # List all files in the directory with the specified extensions (if provided)
+    # if include_paths is True, return the full path of the files
+    if extensions:
+        if isinstance(extensions, str):
+            extensions = [extensions]
+        files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f)) and f.lower().endswith(tuple(extensions))]
+    else:
+        files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
+        
+    if include_paths:
+        files = [os.path.join(directory, f) for f in files]
+
+    return files
+
 #read an image as PIL Image from a URL
 def read_image_from_url(image_url):
     response = requests.get(image_url)
@@ -401,6 +419,19 @@ def get_thumbnail(json_data):
         thumb_url = metadata.get('parentThumb')
         
     return None if thumb_url == 'null' else thumb_url
+
+def get_title(json_data):
+    metadata = json_data.get('Metadata', {})
+    library_section_type = metadata.get('librarySectionType')
+    
+    if library_section_type == 'movie':
+        title = metadata.get('title')
+    elif library_section_type == 'show':
+        title = metadata.get('grandparentTitle')
+    else:
+        title = metadata.get('parentTitle')
+        
+    return title
 
 def strtobool (val):
     """Convert a string representation of truth to true (1) or false (0).

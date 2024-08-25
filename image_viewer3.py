@@ -28,14 +28,12 @@
 # the application will have a method to quit the slideshow
 # the application will have an option to ransomise the next image
 
-import base64
-import os
 import time
 import tkinter as tk
 from PIL import ImageTk
 from config_manager import ConfigManager
 from media_manager import ImageContainer, MediaManager
-from utils import cv2_crop_center, cv2_rotate_image, cv2_to_pil, cv_resize_to_target, quick_read_image
+from utils import cv2_to_pil
 import cv2
 import numpy as np
 
@@ -257,8 +255,6 @@ class ImageViewer:
         if media_orientation_filter is not None:
             self.media_orientation_filter = media_orientation_filter
         
-           
-           
     def update_canvas(self):
         '''
         Update the current displayed image
@@ -283,9 +279,26 @@ class ImageViewer:
         # Store the reference to the photo to prevent garbage collection
         self.canvas.image = photo    
     
+    def set_image_from_url(self, url: str):
+        image = ImageContainer()
+        image.from_url(url)
+        self.fade_to_image(image, self.transition_duration)
     
+    def set_image(self, image: np.ndarray, title: str='plex_image'):
+        plex_image = ImageContainer()
+        plex_image.from_image(image, filename=title)
+        plex_image.check_processing_parameters(self.screen_height, self.screen_width, self.scale_mode, self.rotation)
+        self.fade_to_image(plex_image, self.transition_duration)
     
-    def select_image(self, image_name):
+    def set_image_from_base64(self, base64_image: str, name: str='remote_image'):
+        self.next_image_job_id = None
+        self.transition_job_id = None
+        remote_image = ImageContainer()
+        remote_image.from_base64(base64_image, filename=name)
+        remote_image.check_processing_parameters(self.screen_height, self.screen_width, self.scale_mode, self.rotation)
+        self.fade_to_image(remote_image, self.transition_duration)
+    
+    def select_image(self, image_name: str):
         #find the image from the MediaManager with the matching name
         self.next_image_job_id = None
         self.transition_job_id = None
@@ -293,15 +306,16 @@ class ImageViewer:
         image.check_processing_parameters(self.screen_height, self.screen_width, self.scale_mode, self.rotation)
         self.fade_to_image(image, self.transition_duration)
     
-    def select_image_from_base64(self, base64_image):
-        pass
-    
     def fade_to_image(self, to_image: ImageContainer, duration: float):
         self.current_image = to_image
         self.fade_in_progress = True
         self.fade_start_time = time.time()
         self.fade_from_image = self.canvas_image
+        to_image.check_processing_parameters(self.screen_height, self.screen_width, self.scale_mode, self.rotation) 
         self.target_image = to_image.get_processed_image()
+        if self.target_image is None:
+            self.target_image = self.canvas_image
+            return
         self.fade_duration = duration
         self._fade_step()
 
@@ -311,7 +325,10 @@ class ImageViewer:
 
         current_time = time.time()
         elapsed_time = current_time - self.fade_start_time
-        progress = min(elapsed_time / self.fade_duration, 1.0)
+        if self.fade_duration == 0:
+            progress = 1.0
+        else:
+            progress = min(elapsed_time / self.fade_duration, 1.0)
 
         self.canvas_image = cv2.addWeighted(
             self.fade_from_image, 1 - progress,
@@ -325,8 +342,9 @@ class ImageViewer:
             self.transition_job_id = self.root.after(33, self._fade_step)  # Approximately 30 FPS
         else:
             self.fade_in_progress = False
-            self.next_image_job_id = self.root.after(int(self.frame_interval * 1000), self.show_next_image)
-            # self.current_image = self.target_image
+            if self.slideshow_active:
+                self.next_image_job_id = self.root.after(int(self.frame_interval * 1000), self.show_next_image)
+                # self.current_image = self.target_image
         
     def quit_app(self, event=None):
         self.root.quit()
@@ -338,6 +356,7 @@ class ImageViewer:
     def pause_slideshow(self, event=None):  
         self.slideshow_active = False
         self.next_image_job_id = None
+        self.transition_job_id = None
         
     def play_slideshow(self, event=None):
         if self.slideshow_active and self.next_image_job_id is not None:

@@ -187,7 +187,17 @@ class SlideshowManager:
         self.publish_mqtt_message(f"{self.config_manager.config['mqtt_topic']}/available_images", json.dumps(files), retain=True)
 
     
-    
+    def close(self):
+        if self.viewer:
+            self.viewer.quit_app()
+            self.viewer.root.quit()
+            self.viewer.root.destroy()
+        if self.mqtt_client:
+            self.mqtt_client.loop_stop()
+            self.mqtt_client.disconnect()
+            
+    def stop(self):
+        self.close()
     
     # def play_slideshow(self):
     #     if self.viewer:

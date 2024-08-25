@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Digital Canvas</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
 </head>
 
 <body class={{selected_theme}}>
@@ -37,8 +38,8 @@
         <div class="settings-menu">
             <h2>Device Name</h2>
             <div class="device-name-container">
-                <div><span id="deviceNameText">{{ device_name }}</span></div>
-                <input type="text" id="deviceNameInput" class="device-name-input" style="min-width: 150px;" value="{{ device_name }}">
+                <div><span id="deviceNameText">{{ config_manager.config['device_name'] }}</span></div>
+                <input type="text" id="deviceNameInput" class="device-name-input" style="min-width: 150px;" value="{{ config_manager.config['device_name'] }}">
                 <button class="edit-icon" onclick="editDeviceName()">✏️</button>
             </div>
 
@@ -111,7 +112,7 @@
                 <div>
                     <!-- it would be cleaner to put the logic in the style but this would prevent rendering outside flask -->
                     <label for="monitor-power">Monitor Power</label>
-                    {% if power_state == 'on' %}
+                    {% if monitor_power_state == 'on' %}
                     <button id="turnOnButton" onclick="toggleMonitorPower(this, {value: 'on'})" style="display: none; background-color: #4b944b;">Turn On</button>
                     <button id="turnOffButton" onclick="toggleMonitorPower(this, {value: 'off'})" style="background-color: #944b4b;">Turn Off</button>
                     {% else %}
@@ -119,6 +120,19 @@
                     <button id="turnOffButton" onclick="toggleMonitorPower(this, {value: 'off'})" style="display: none; background-color: #944b4b;">Turn Off</button>
                     {% endif %}
                 </div>
+
+                <div>
+                    <label for="time-on">Time On:</label>
+                    <input type="time" id="time-on" name="time-on" value="{{ time_on }}">
+                </div>
+                  
+                <div>
+                    <label for="time-off">Time Off:</label>
+                    <input type="time" id="time-off" name="time-off" value="{{ time_off }}">
+                </div>
+
+                <button onclick="saveScreenControlSettings()">Set Times</button>
+
             </div>
             
             <hr>
@@ -179,8 +193,11 @@
                 </div>
                 <br>
                 <div>
-                    <label for="allow_plex">Enable</label>
+                    <label for="allow_plex">Enable Control</label>
                     <input type="checkbox" id="allow_plex" name="allow_plex" onchange="toggleAllowPlex()" {% if allow_plex %}checked{% endif %}>
+                    <br>
+                    <label for="pause_when_plex_playing">Pause Slideshow when Playing</label>
+                    <input type="checkbox" id="pause_when_plex_playing" name="pause_when_plex_playing" onchange="toggleAllowPlex()" {% if pause_when_plex_playing %}checked{% endif %}>
                 </div>
             </div>
         </div>
@@ -199,14 +216,18 @@
 
         <div class="gallery">
             {% for file in files %}
-            <div class="gallery-item" data-filename="{{ file }}" data-media_orientation_filter="{{ media_orientation_filter }}" onclick="selectFile('{{ file }}')">
-                <img src="{{ url_for('uploaded_thumbnail', filename=file) }}" alt="Thumbnail">
-                <button class="delete-button" onclick="confirmDelete('{{ file }}', event)">&times;</button>
-                
-                <span class="portrait-icon" {% if media_orientation_filter != 'portrait' %}style="display:none;"{% endif %}>&#9647;</span>
-                <span class="landscape-icon" {% if media_orientation_filter != 'landscape' %}style="display:none;"{% endif %}>&#9645;</span>
+            <div class="gallery-item" data-filename="{{ file.filename }}" data-media_orientation_filter="{{ media_orientation_filter }}" onclick="selectFile('{{ file.filename }}')">
+                <img src="{{ url_for('uploaded_thumbnail', filename=file.filename) }}" alt="Thumbnail">
+                <button class="delete-button" onclick="confirmDelete('{{ file.filename }}', event)">&times;</button>
+
+                {% if file.is_portrait %}
+                <span class="portrait-icon">&#9647;</span>
+                {% else %}
+                <span class="landscape-icon">&#9645;</span>
+                {% endif %} 
+
                 <div class="info">
-                    <a href="{{ url_for('uploaded_file', filename=file) }}">View</a>
+                    <a href="{{ url_for('uploaded_file', filename=file.filename) }}">View</a>
                 </div>
             </div>
             {% endfor %}
@@ -214,7 +235,26 @@
 
         <script>
 
+        function saveScreenControlSettings() {
+            const timeOn = document.getElementById('time-on').value;
+            const timeOff = document.getElementById('time-off').value;
 
+            // Send the new device name to the server
+            fetch("{{ url_for('configure_display') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'time_on=' + timeOn + '&time_off=' + timeOff
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Success:', data);
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
 
 
         function handleOrientationFilterDropdownChange() {
@@ -240,9 +280,11 @@
 
         function toggleAllowPlex() {
             const allowPlexCheckbox = document.getElementById('allow_plex');
+            const pauseWhenPlexPlayingCheckbox = document.getElementById('pause_when_plex_playing');
 
             // Read the checkbox state
-            const state = allowPlexCheckbox.checked;
+            const allowPlexCheckbox_state = allowPlexCheckbox.checked;
+            const pauseWhenPlexPlayingCheckbox_state = pauseWhenPlexPlayingCheckbox.checked;
 
             // Send the new state to the server
             fetch("{{ url_for('configure_plex') }}", {
@@ -250,7 +292,8 @@
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: 'allow_plex=' + state
+                body: 'allow_plex=' + allowPlexCheckbox_state + 
+                      '&pause_when_plex_playing=' + pauseWhenPlexPlayingCheckbox_state
             })
             .then(response => response.json())
             .then(data => {
@@ -572,6 +615,8 @@
             form.appendChild(input);
             document.body.appendChild(form);
             form.submit();
+
+            updateHighlightedImage();
         }
 
         function editDeviceName() {
@@ -670,6 +715,7 @@
 
             // Initial update
             updateHighlightedImage();
+
         });
         </script>
     </div>

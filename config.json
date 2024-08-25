@@ -1,8 +1,8 @@
 {
     "image_folder": "images",
     "thumbnail_folder": "thumbnails",
-    "frame_interval": 10,
-    "transition_duration": 1,
+    "frame_interval": 20,
+    "transition_duration": 3,
     "media_orientation_filter": "both",
     "display_mode": "windowed",
     "web_interface_port": 7000,
@@ -15,6 +15,12 @@
     "scale_mode": "fit",
     "plex_port": 32400,
     "allow_plex": true,
+    "pause_when_plex_playing": true,
     "auto_brightness": false,
-    "auto_rotation": false
+    "auto_rotation": false,
+    "light_sensor_max_reading": 1024,
+    "light_sensor_min_reading": 0,
+    "playback_mode": "sequential",
+    "time_on": "08:00",
+    "time_off": "22:00"
 }

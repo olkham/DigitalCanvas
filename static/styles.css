@@ -90,6 +90,11 @@
 
 /* General Styles */
 body {
+    /* background-image: url('background.png'); */
+    /* filter: blur(10px); */
+    /* background-size: cover; */
+    /* background-repeat: no-repeat; */
+    /* background-attachment: fixed; */
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: var(--background-color);
     color: var(--text-color);
@@ -437,4 +442,8 @@ button:hover {
 
 .button-container form {
     margin: 0;
+}
+
+.hidden {
+    display: none;
 }

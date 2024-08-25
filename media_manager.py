@@ -1,3 +1,4 @@
+import base64
 import os
 import json
 import random
@@ -19,9 +20,10 @@ class ImageContainer:
         UNSET = 'square'
         PORTRAIT = 'portrait'
         LANDSCAPE = 'landscape'
+        BOTH = 'both'
         
         def __eq__(self, value: object) -> bool:
-            return super().__eq__(value)
+            return self.value == value
         
         def __str__(self) -> str:
             return self.value
@@ -43,6 +45,7 @@ class ImageContainer:
     def __init__(self) -> None:
         #strings
         self.file_path: str = None
+        self.thumbnail_path: str = None
         self.filename = None
         
         #image data
@@ -58,6 +61,21 @@ class ImageContainer:
         self.scale_mode = ImageContainer.ScaleMode.UNSET
         self.rotation = 0
 
+    def __str__(self) -> str:
+        #used for printing the object
+        #it should display the path, filename, orientation, height, width, thumbnail path, thumbnail size, image size, processed image size
+        return (
+            f"Path: {self.file_path}\n"
+            f"Filename: {self.filename}\n"
+            f"Orientation: {self.orientation}\n"
+            f"Height: {self.height}\n"
+            f"Width: {self.width}\n"
+            f"Thumbnail Path: {self.thumbnail_path}\n"
+            f"Thumbnail Size: {self.thumbnail.shape[:2] if self.thumbnail is not None else 'N/A'}\n"
+            f"Image Size: {self.image.shape[:2] if self.image is not None else 'N/A'}\n"
+            f"Processed Image Size: {self.processed_image.shape[:2] if self.processed_image is not None else 'N/A'}"
+        )
+        
     def __eq__(self, other) -> bool:
         if not isinstance(other, ImageContainer):
             return False
@@ -99,23 +117,34 @@ class ImageContainer:
             self.populate_properties()                      #populate the properties
             return self
 
-    def from_image(self, image, thumbnail_dir=None, thumbnail_width=100, thumbnail_height=100):
-            
+    def from_image(self, image, filename='', thumbnail_dir=None, thumbnail_width=100, thumbnail_height=100):
             #strings
-            self.file_path: str = 'image'
-            self.filename = 'image'
-            
+            self.file_path: str = '_from_image_'
+            self.filename = filename
+
             #image data
             self.image = image
-
             self.thumbnail_height = thumbnail_height
             self.thumbnail_width = thumbnail_width
-            
+
             #default actions
             #self.check_for_thumbnail(thumbnail_dir)        #TODO decide what to do with the thumbnail
             self.populate_properties()                      #populate the properties
             return self
 
+    def from_base64(self, base64_string, filename='', thumbnail_width=100, thumbnail_height=100):
+        self.file_path: str = '_from_base64_'
+        self.filename = filename
+        image_data = base64.b64decode(base64_string)
+        nparr = np.frombuffer(image_data, np.uint8)
+        self.image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        self.thumbnail_height = thumbnail_height
+        self.thumbnail_width = thumbnail_width
+        
+        #default actions
+        #self.check_for_thumbnail(thumbnail_dir)        #TODO decide what to do with the thumbnail
+        self.populate_properties()                      #populate the properties
+        return self
 
     def check_processing_parameters(self, target_height, target_width, scale_mode, angle):
         #if the processing parameters are different from the current processing parameters, then reprocess the image
@@ -292,6 +321,8 @@ class MediaManager:
         return self.current_media
 
     def get_media_by_orientation(self, orientation) -> List[ImageContainer]:
+        if orientation == 'both':
+            return self.media_files
         return [media for media in self.media_files if media.orientation == orientation]
 
     def get_media_by_index(self, index) -> Optional[ImageContainer]:
