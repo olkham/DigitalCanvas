@@ -23,6 +23,7 @@ from sensors2 import SensorReader
 from slideshow_manager import SlideshowManager
 from utils import (
     accel_to_orientation,
+    check_for_duplicate_files,
     create_thumbnail,
     create_thumbnails_for_existing_images,
     get_thumbnail,
@@ -102,7 +103,7 @@ class CombinedApp:
         
         @self.app.route(API.favicon, methods=['GET'])
         def favicon():
-            return send_from_directory(os.path.join(app.root_path, 'static'),
+            return send_from_directory(os.path.join(self.app.root_path, 'static'),
                                        'favicon.ico', mimetype='image/vnd.microsoft.icon')
         
         @self.app.route(API.home_url, methods=['GET', 'POST'])
@@ -172,21 +173,23 @@ class CombinedApp:
                     files = request.files.getlist('file')
                     for file in files:
                         filename = replace_webp_extension(file.filename)
+                        filename = check_for_duplicate_files(self.app.config['UPLOAD_FOLDER'], filename)
                         file_path = os.path.join(self.app.config['UPLOAD_FOLDER'], filename)
                         file.save(file_path)
                         thumbnail_path = os.path.join(self.app.config['THUMBNAIL_FOLDER'], filename)
                         create_thumbnail(file_path, thumbnail_path)
+                        self.slideshow_manager.viewer.media_manager.add_media_file(os.path.join(self.app.config['UPLOAD_FOLDER'], filename))
+                        
                 elif 'image_url' in request.form and request.form['image_url'] != '':
                     image_url = request.form['image_url']
-                    filename = save_remote_image(image_url, self.app.config['UPLOAD_FOLDER'])
+                    filename = save_remote_image(image_url, self.app.config['UPLOAD_FOLDER'])         #duplicate files are checked for in this function
                     filename = replace_webp_extension(filename)
                     if filename:
                         file_path = os.path.join(self.app.config['UPLOAD_FOLDER'], filename)
                         thumbnail_path = os.path.join(self.app.config['THUMBNAIL_FOLDER'], filename)
                         create_thumbnail(file_path, thumbnail_path)
+                        self.slideshow_manager.viewer.media_manager.add_media_file(os.path.join(self.app.config['UPLOAD_FOLDER'], filename))
 
-                # self.slideshow_manager.viewer.add_image(os.path.join(self.app.root_path, self.app.config['UPLOAD_FOLDER'], filename))
-                self.slideshow_manager.viewer.media_manager.add_media_file(os.path.join(self.app.config['UPLOAD_FOLDER'], filename))
                 return redirect(url_for('index'))
 
         @self.app.route(API.thumbnails, methods=['GET'])
@@ -213,9 +216,9 @@ class CombinedApp:
             if os.path.exists(thumbnail_path):
                 os.remove(thumbnail_path)
             
-            full_path = os.path.join(self.app.config.root_path, self.app.config['UPLOAD_FOLDER'], filename)
+            # full_path = os.path.join(self.app.config.root_path, self.app.config['UPLOAD_FOLDER'], filename)
             #todo remove the image from the slideshow files list
-            self.slideshow_manager.viewer.remove_image(full_path)
+            self.slideshow_manager.viewer.media_manager.remove_media_file(file_path)
             return redirect(url_for('index'))
 
         @self.app.route(API.select, methods=['POST'])

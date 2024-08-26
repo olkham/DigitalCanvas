@@ -49,7 +49,7 @@ class ImageContainer:
         self.filename = None
         
         #image data
-        self.image: np.ndarray = None
+        self._image: np.ndarray = None
         self.thumbnail: np.ndarray = None
         self.processed_image: np.ndarray = None
         
@@ -72,7 +72,7 @@ class ImageContainer:
             f"Width: {self.width}\n"
             f"Thumbnail Path: {self.thumbnail_path}\n"
             f"Thumbnail Size: {self.thumbnail.shape[:2] if self.thumbnail is not None else 'N/A'}\n"
-            f"Image Size: {self.image.shape[:2] if self.image is not None else 'N/A'}\n"
+            f"Image Size: {self._image.shape[:2] if self._image is not None else 'N/A'}\n"
             f"Processed Image Size: {self.processed_image.shape[:2] if self.processed_image is not None else 'N/A'}"
         )
         
@@ -81,6 +81,20 @@ class ImageContainer:
             return False
         return self.filename == other.filename
 
+
+    @property
+    def image(self) -> np.ndarray:
+        if self._image is None:
+            print('Reloading image from file')
+            self._image = cv2.imread(self.file_path)
+        return self._image
+    
+    @image.setter
+    def image(self, image: np.ndarray) -> None:
+        self._image = image
+        self.populate_properties()
+
+
     def from_file(self, file_path, thumbnail_dir=None, thumbnail_width=100, thumbnail_height=100):
         
         #strings
@@ -88,7 +102,7 @@ class ImageContainer:
         self.filename = os.path.basename(file_path)
 
         #image data
-        self.image = cv2.imread(file_path)
+        self._image = cv2.imread(file_path)
 
         #properties
         self.thumbnail_height = thumbnail_height
@@ -101,43 +115,43 @@ class ImageContainer:
 
     def from_url(self, url, thumbnail_dir=None, thumbnail_width=100, thumbnail_height=100):
             
-            #strings
-            self.file_path: str = url
-            self.filename = os.path.basename(url)
-    
-            #image data
-            self.image = read_image_from_url(url)
-    
-            #properties
-            self.thumbnail_height = thumbnail_height
-            self.thumbnail_width = thumbnail_width
-            
-            #default actions
-            # self.check_for_thumbnail(thumbnail_dir)       #TODO decide what to do with the thumbnail
-            self.populate_properties()                      #populate the properties
-            return self
+        #strings
+        self.file_path: str = url
+        self.filename = os.path.basename(url)
+
+        #image data
+        self._image = read_image_from_url(url)
+
+        #properties
+        self.thumbnail_height = thumbnail_height
+        self.thumbnail_width = thumbnail_width
+        
+        #default actions
+        # self.check_for_thumbnail(thumbnail_dir)       #TODO decide what to do with the thumbnail
+        self.populate_properties()                      #populate the properties
+        return self
 
     def from_image(self, image, filename='', thumbnail_dir=None, thumbnail_width=100, thumbnail_height=100):
-            #strings
-            self.file_path: str = '_from_image_'
-            self.filename = filename
+        #strings
+        self.file_path: str = '_from_image_'
+        self.filename = filename
 
-            #image data
-            self.image = image
-            self.thumbnail_height = thumbnail_height
-            self.thumbnail_width = thumbnail_width
+        #image data
+        self._image = image
+        self.thumbnail_height = thumbnail_height
+        self.thumbnail_width = thumbnail_width
 
-            #default actions
-            #self.check_for_thumbnail(thumbnail_dir)        #TODO decide what to do with the thumbnail
-            self.populate_properties()                      #populate the properties
-            return self
+        #default actions
+        #self.check_for_thumbnail(thumbnail_dir)        #TODO decide what to do with the thumbnail
+        self.populate_properties()                      #populate the properties
+        return self
 
     def from_base64(self, base64_string, filename='', thumbnail_width=100, thumbnail_height=100):
         self.file_path: str = '_from_base64_'
         self.filename = filename
         image_data = base64.b64decode(base64_string)
         nparr = np.frombuffer(image_data, np.uint8)
-        self.image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        self._image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         self.thumbnail_height = thumbnail_height
         self.thumbnail_width = thumbnail_width
         
@@ -155,7 +169,12 @@ class ImageContainer:
             scale_mode = scale_mode.value
         
         if self.target_height != target_height or self.target_width != target_width or self.scale_mode != scale_mode or self.rotation != angle:
-            self.process_image(target_height, target_width, scale_mode, angle)
+            print('Reprocessing image')
+            if int(abs(self.rotation - angle)) == 180:
+                self.processed_image = cv2_rotate_image(self.processed_image, 180)
+                self.rotation = angle
+            else:
+                self.process_image(target_height, target_width, scale_mode, angle)
         
     def check_for_thumbnail(self, thumbnail_dir):
         #check if thumbnail dir exists, if not create one
@@ -182,7 +201,7 @@ class ImageContainer:
     def create_thumbnail(self, width, height):
         if self.has_thumbnail:
             return
-        self.thumbnail = cv_resize_to_target_size(self.image, width, height, resize_option=ImageContainer.ScaleMode.FIT.value)
+        self.thumbnail = cv_resize_to_target_size(self._image, width, height, resize_option=ImageContainer.ScaleMode.FIT.value)
         cv2.imwrite(self.thumbnail_path, self.thumbnail)
         self.has_thumbnail = True
 
@@ -198,7 +217,7 @@ class ImageContainer:
     def get_thumbnail(self) -> Optional[np.ndarray]: 
         return self.thumbnail
 
-    def get_image(self) -> Optional[np.ndarray]: 
+    def get_image(self) -> Optional[np.ndarray]:
         return self.image
     
     def get_processed_image(self) -> Optional[np.ndarray]: 
@@ -216,6 +235,7 @@ class ImageContainer:
         rotated_image = cv2_rotate_image(self.image, self.rotation)
         self.processed_image = cv_resize_to_target_size(rotated_image, self.target_height, self.target_width, self.scale_mode)
         self.processed_image = cv2_crop_center(self.processed_image, (self.target_height, self.target_width))
+        self.image = None
         return self.processed_image
 
     def blend_image(self, image: 'ImageContainer', alpha: float) -> Optional[np.ndarray]:
@@ -285,6 +305,12 @@ class MediaManager:
         img = ImageContainer()
         img.from_file(file_path, self.thumbnail_dir, self.thumbnail_width, self.thumbnail_height)
         self.media_files.append(img)
+        
+    def remove_media_file(self, file_path) -> None:
+        for media in self.media_files:
+            if media.file_path == file_path:
+                self.media_files.remove(media)
+                break
 
     def get_next_media(self) -> ImageContainer:
         self.current_index = (self.current_index + 1) % len(self.media_files)

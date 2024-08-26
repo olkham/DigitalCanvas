@@ -41,6 +41,7 @@ def save_remote_image(image_url, upload_folder, size=None):
         response.raise_for_status()
         image = Image.open(BytesIO(response.content))        
         filename = os.path.basename(image_url)
+        filename = check_for_duplicate_files(upload_folder, filename)
         file_path = os.path.join(upload_folder, filename)
         file_path = replace_webp_extension(file_path)
         image.save(file_path)
@@ -59,6 +60,18 @@ def create_thumbnails_for_existing_images(images, thumbs):
         if not os.path.exists(thumbnail_path):
             create_thumbnail(file_path, thumbnail_path)
 
+def check_for_duplicate_files(dir, file):
+    # Check if the file already exists in the directory
+    #if it does exist, add a number to the filename to make it unique
+    if os.path.exists(os.path.join(dir, file)):
+        base, ext = os.path.splitext(file)
+        i = 1
+        while os.path.exists(f"{base}_{i}{ext}"):
+            i += 1
+        file = f"{base}_{i}{ext}"
+    return file
+    
+    
 def is_raspberry_pi():
     try:
         with open('/proc/device-tree/model') as model_file:
