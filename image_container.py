@@ -94,7 +94,7 @@ class ImageContainer:
     @property
     def image(self) -> np.ndarray:
         if self._image is None:
-            print('Reloading image from file')
+            print(f'Reloading image from file {self.filename}')
             self.reload_image()
             
         return self._image
@@ -102,7 +102,8 @@ class ImageContainer:
     @image.setter
     def image(self, image: np.ndarray) -> None:
         self._image = image
-        self.populate_properties()
+        if image is not None:
+            self.populate_properties()
 
 
     def from_file(self, file_path, thumbnail_dir=None, thumbnail_width=100, thumbnail_height=100):
@@ -236,7 +237,7 @@ class ImageContainer:
         self.has_thumbnail = True
 
     def populate_properties(self):
-        self.height, self.width = self.image.shape[:2]
+        self.height, self.width = self._image.shape[:2]
         self.is_portrait = self.height > self.width
 
         if self.is_portrait:

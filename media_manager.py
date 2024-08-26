@@ -83,7 +83,7 @@ class MediaManager:
     def get_next_media(self) -> ImageContainer:
         self.current_index = (self.current_index + 1) % len(self.playlist)
         self.current_media = self.playlist[self.current_index]
-        self.clear_memory()
+        # self.clear_memory()
         return self.current_media
 
     def get_prev_media(self) -> ImageContainer:
@@ -157,6 +157,8 @@ class MediaManager:
     def get_media_by_filename(self, filename) -> Optional[ImageContainer]:
         for media in self.playlist:
             if media.filename == filename:
+                #get the index of the media file
+                self.current_index = self.playlist.index(media)                
                 return media
         return None
 

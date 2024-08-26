@@ -41,8 +41,7 @@ from utils import (
 # log.setLevel(logging.ERROR)
 
 # todo
-#fix selecting the image out of order and the index not updating to the selected image
-#fix te orientation filter
+#1 fix selecting the image out of order and the index not updating to the selected image
 #3 add another tk element to the gallery view to show the current time
 #6 add accelerometer range calibration
 
@@ -142,7 +141,7 @@ class CombinedApp:
                 'time_off': self.config_manager.config['time_off'],
             }
             
-            return render_template('index8.html', **params)
+            return render_template('index.html', **params)
 
         @self.app.route(API.display_now, methods=['POST'])
         def display_now():
@@ -234,7 +233,6 @@ class CombinedApp:
 
             file_path = os.path.join(self.app.config['UPLOAD_FOLDER'], filename)
             if os.path.exists(file_path):
-                print(f"Selecting image {filename} at {time.time()}")
                 self.slideshow_manager.viewer.select_image(filename)
             return '', 204
         
