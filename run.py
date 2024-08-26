@@ -41,7 +41,7 @@ from utils import (
 # log.setLevel(logging.ERROR)
 
 # todo
-#1 fix selecting the image out of order and the index not updating to the selected image
+#1 publish to mqtt when images are added or removed
 #3 add another tk element to the gallery view to show the current time
 #6 add accelerometer range calibration
 
@@ -350,13 +350,13 @@ class CombinedApp:
 
         @self.app.route(API.slideshow_next, methods=['POST'])
         def slideshow_next():
-            self.slideshow_manager.viewer.next_image()
+            self.slideshow_manager.viewer.show_next_image()
             # self.slideshow_manager.publish_current_image()
             return '', 204
 
         @self.app.route(API.slideshow_previous, methods=['POST'])
         def slideshow_previous():
-            self.slideshow_manager.viewer.previous_image()
+            self.slideshow_manager.viewer.show_previous_image()
             # self.slideshow_manager.publish_current_image()
             return '', 204
 

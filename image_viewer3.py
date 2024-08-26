@@ -279,10 +279,8 @@ class ImageViewer:
         # width, height = photo.width(), photo.height()
         # self.canvas.create_image(width // 2, height // 2, anchor=tk.CENTER, image=photo)
         # self.canvas.image = photo
-
         photo = ImageTk.PhotoImage(cv2_to_pil(self.canvas_image))
         width, height = photo.width(), photo.height()
-
         # Check if an image already exists on the canvas
         if hasattr(self.canvas, 'image_id'):
             # Update the existing image
@@ -290,9 +288,8 @@ class ImageViewer:
         else:
             # Create a new image if it doesn't exist
             self.canvas.image_id = self.canvas.create_image(width // 2, height // 2, anchor=tk.CENTER, image=photo)
-
         # Store the reference to the photo to prevent garbage collection
-        self.canvas.image = photo    
+        self.canvas.image = photo
     
     def set_image_from_url(self, url: str):
         image = ImageContainer()
@@ -323,6 +320,9 @@ class ImageViewer:
     
     def fade_to_image(self, to_image: ImageContainer, duration: float):
         self.current_image = to_image
+        if self.image_change_callback is not None:
+            self.image_change_callback(self.current_image.filename)
+
         self.fade_in_progress = True
         self.fade_start_time = time.time()
         self.fade_from_image = self.canvas_image
@@ -354,7 +354,7 @@ class ImageViewer:
         self.update_canvas()
 
         if progress < 1.0:
-            self.transition_job_id = self.root.after(33, self._fade_step)  # Approximately 30 FPS
+            self.transition_job_id = self.root.after(16, self._fade_step)  # Approximately 30 FPS
         else:
             self.fade_in_progress = False
             if self.slideshow_active:
