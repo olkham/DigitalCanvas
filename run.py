@@ -41,7 +41,8 @@ from utils import (
 # log.setLevel(logging.ERROR)
 
 # todo
-#1 FIX ERROR WITH DELETE IMAGE AND FAVICON
+#fix selecting the image out of order and the index not updating to the selected image
+#fix te orientation filter
 #3 add another tk element to the gallery view to show the current time
 #6 add accelerometer range calibration
 
@@ -108,6 +109,9 @@ class CombinedApp:
         
         @self.app.route(API.home_url, methods=['GET', 'POST'])
         def index():
+
+            if self.slideshow_manager.viewer is None:
+                return render_template('loading.html')
 
             files = self.slideshow_manager.viewer.media_manager.get_media_files(self.config_manager.config['media_orientation_filter'])
 
@@ -309,6 +313,7 @@ class CombinedApp:
                 
                 # if the oreintation is changed, we need to refresh the page to update the gallery view
                 if media_orientation_filter is not None:
+                    self.slideshow_manager.viewer.media_manager.orientation_filter = media_orientation_filter
                     return redirect(url_for('index'))
 
                 return "", 204
@@ -340,7 +345,7 @@ class CombinedApp:
             self.slideshow_manager.viewer.update_parameters(transition_duration=transition_duration, frame_interval=frame_interval)
             slideshow_active = strtobool(request.form.get('slideshow_active'))
             if slideshow_active == True:
-                self.slideshow_manager.viewer.resume_slideshow()
+                self.slideshow_manager.viewer.play_slideshow()
             elif slideshow_active == False:
                 self.slideshow_manager.viewer.pause_slideshow()
             return redirect(url_for('index'))
@@ -397,6 +402,7 @@ class CombinedApp:
                     if thumb_url is not None:
                         image_url = f"http://{request.access_route[0]}:{self.config_manager.config['plex_port']}{thumb_url}.jpg"
                         try:
+                            print(image_url)
                             image = read_image_from_url(image_url)
                             if self.config_manager.config['pause_when_plex_playing']:
                                 self.slideshow_manager.viewer.pause_slideshow()
@@ -466,21 +472,21 @@ class CombinedApp:
         flask_thread.join()
         slideshow_thread.join()
         sensor_thread.join()
-        
+
     def shutdown(self):
         #todo: add a confirmation dialog
         # self.monitor_controller.set_power_mode('off')
         self.slideshow_manager.viewer.quit_slideshow()
         self.sensor_reader.stop()
         os.system("sudo shutdown -h now")
-        
+
     def restart(self):
         #todo: add a confirmation dialog
         # self.monitor_controller.set_power_mode('off')
         self.slideshow_manager.stop()
         self.sensor_reader.stop()
         os.system("sudo reboot")
-        
+
 
 if __name__ == '__main__':
     config_manager = ConfigManager('config.json')   

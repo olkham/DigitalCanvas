@@ -1,13 +1,8 @@
 import json
 import os
 from queue import Queue
-# from image_viewer import ImageViewer
-# from image_viewer2 import ImageViewer
 from image_viewer3 import ImageViewer
 import paho.mqtt.client as mqtt
-
-from media_manager import MediaManager
-
 
 
 class SlideshowManager:

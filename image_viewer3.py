@@ -32,7 +32,8 @@ import time
 import tkinter as tk
 from PIL import ImageTk
 from config_manager import ConfigManager
-from media_manager import ImageContainer, MediaManager
+from media_manager import MediaManager
+from image_container import ImageContainer
 from utils import cv2_to_pil
 import cv2
 import numpy as np
@@ -55,6 +56,7 @@ class ImageViewer:
         self._transition_duration = 0
         self._next_image_job_id = None
         self._transition_job_id = None
+        self._media_orientation_filter = None
         
         # the current image as ImageContainer
         self.current_image: ImageContainer = None
@@ -69,6 +71,7 @@ class ImageViewer:
         self.rotation = self.config_manager.config['rotation']
         self.frame_interval = self.config_manager.config['frame_interval']
         self.transition_duration = self.config_manager.config['transition_duration']
+        self.media_orientation_filter = self.config_manager.config['media_orientation_filter']
         
         #preprocess the media
         self.media_manager.preprocess_media(self.screen_height, 
@@ -219,6 +222,18 @@ class ImageViewer:
         return self.current_image.filename
     
     
+    @property
+    def media_orientation_filter(self):
+        return self._media_orientation_filter
+    
+    @media_orientation_filter.setter
+    def media_orientation_filter(self, orientation):
+        if ConfigManager.is_valid_value('media_orientation_filter', orientation):
+            if self._media_orientation_filter != orientation:
+                self._media_orientation_filter = orientation
+                self.config_manager.update_parameter('media_orientation_filter', orientation)
+                self.media_manager.filter_media_by_orientation(self.media_orientation_filter)
+    
     
     def toggle_fullscreen(self, event=None):
         if self.display_mode == "fullscreen":
@@ -254,7 +269,7 @@ class ImageViewer:
             self.auto_rotation = auto_rotation
         if media_orientation_filter is not None:
             self.media_orientation_filter = media_orientation_filter
-        
+
     def update_canvas(self):
         '''
         Update the current displayed image
