@@ -1,20 +1,38 @@
+import base64
 import datetime
 import os
 import threading
-from queue import Queue
 import time
-from flask import Flask, json, jsonify, render_template, request, send_from_directory, redirect, url_for
-from media_manager import MediaManager
-from utils import accel_to_orientation, create_thumbnail, create_thumbnails_for_existing_images, get_thumbnail, get_title, is_landscape, is_portrait, list_files, luminance_to_brightness, read_image_from_url, replace_webp_extension, save_remote_image, check_and_create, strtobool
-from config_manager import ConfigManager
-from slideshow_manager import SlideshowManager
 
 import cv2
 import numpy as np
-import base64
+from flask import (
+    Flask,
+    json,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_from_directory,
+    url_for
+)
 
+from config_manager import ConfigManager
 from monitor_controller import MonitorController
 from sensors2 import SensorReader
+from slideshow_manager import SlideshowManager
+from utils import (
+    accel_to_orientation,
+    create_thumbnail,
+    create_thumbnails_for_existing_images,
+    get_thumbnail,
+    get_title,
+    luminance_to_brightness,
+    read_image_from_url,
+    replace_webp_extension,
+    save_remote_image,
+    strtobool
+)
 
 # from media_manager import MediaManager
 # import logging
@@ -22,6 +40,7 @@ from sensors2 import SensorReader
 # log.setLevel(logging.ERROR)
 
 # todo
+#1 FIX ERROR WITH DELETE IMAGE AND FAVICON
 #3 add another tk element to the gallery view to show the current time
 #6 add accelerometer range calibration
 
@@ -31,8 +50,8 @@ class API:
     """
     List of the endpoints for the API
     """
-    favicon = f'/favicon.ico'
     home_url = f'/'
+    favicon = f'/favicon.ico'
     display_now = f'/display_now'
     upload = f'/upload'
     uploads = f'/uploads/<filename>'
@@ -166,7 +185,8 @@ class CombinedApp:
                         thumbnail_path = os.path.join(self.app.config['THUMBNAIL_FOLDER'], filename)
                         create_thumbnail(file_path, thumbnail_path)
 
-                self.slideshow_manager.viewer.add_image(os.path.join(self.app.root_path, self.app.config['UPLOAD_FOLDER'], filename))
+                # self.slideshow_manager.viewer.add_image(os.path.join(self.app.root_path, self.app.config['UPLOAD_FOLDER'], filename))
+                self.slideshow_manager.viewer.media_manager.add_media_file(os.path.join(self.app.config['UPLOAD_FOLDER'], filename))
                 return redirect(url_for('index'))
 
         @self.app.route(API.thumbnails, methods=['GET'])

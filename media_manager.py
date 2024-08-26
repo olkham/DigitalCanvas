@@ -246,13 +246,13 @@ class MediaManager:
     def __init__(self, media_dir, thumbnail_dir=None, thumbnail_width=100, thumbnail_height=100) -> None:
         self.media_dir = media_dir
         self.thumbnail_dir = thumbnail_dir
-        self.media_files: List[ImageContainer] = None
+        self.media_files: List[ImageContainer] = []
         self.current_index = 0
         self.current_media = None
         
         self.thumbnail_width = thumbnail_width
         self.thumbnail_height = thumbnail_height
-        
+                
         #todo - implement the playlist and make it accessible to slideshow_manager and image_viewer
         self.playlist = Queue()     #queue to store the media files
         
@@ -272,13 +272,19 @@ class MediaManager:
             self.playlist.put(media)
 
     def load_media_files(self) -> List[ImageContainer]:
-        media_files = []
+        # media_files = []
         for file in os.listdir(self.media_dir):
             if file.lower().endswith(MediaManager.ALLOWED_TYPES):
-                img = ImageContainer()
-                img.from_file(os.path.join(self.media_dir, file), self.thumbnail_dir, self.thumbnail_width, self.thumbnail_height)
-                media_files.append(img)
-        return media_files
+                self.add_media_file(os.path.join(self.media_dir, file))
+                # img = ImageContainer()
+                # img.from_file(os.path.join(self.media_dir, file), self.thumbnail_dir, self.thumbnail_width, self.thumbnail_height)
+                # self.media_files.append(img)
+        return self.media_files
+    
+    def add_media_file(self, file_path) -> None:
+        img = ImageContainer()
+        img.from_file(file_path, self.thumbnail_dir, self.thumbnail_width, self.thumbnail_height)
+        self.media_files.append(img)
 
     def get_next_media(self) -> ImageContainer:
         self.current_index = (self.current_index + 1) % len(self.media_files)
@@ -294,7 +300,7 @@ class MediaManager:
         return self.current_media
 
     def get_media_files(self, orientation=None) -> List[ImageContainer]:
-        if self.media_files is None:
+        if len(self.media_files) == 0:
             self.populate_media_files()
             
         if orientation is not None:
