@@ -41,6 +41,9 @@ class MediaManager:
         self.thumbnail_height = thumbnail_height
         self._orientation_filter = ImageContainer.Orientation.BOTH
         self._pre_load_media = False
+        
+        self.media_files_changed_callback = None
+        
 
     def to_list(self):
         return [media.filename for media in self.all_media_files]
@@ -68,6 +71,8 @@ class MediaManager:
         img = ImageContainer()
         img.from_file(file_path, self.thumbnail_dir, self.thumbnail_width, self.thumbnail_height)
         self.all_media_files.append(img)
+        if self.media_files_changed_callback is not None:
+            self.media_files_changed_callback()
 
     def remove_media_file(self, file_path) -> None:
         for media in self.all_media_files:
@@ -79,6 +84,9 @@ class MediaManager:
             if media.file_path == file_path:
                 self.playlist.remove(media)
                 break
+    
+        if self.media_files_changed_callback is not None:
+            self.media_files_changed_callback()
 
     def get_next_media(self) -> ImageContainer:
         self.current_index = (self.current_index + 1) % len(self.playlist)

@@ -41,9 +41,8 @@ from utils import (
 # log.setLevel(logging.ERROR)
 
 # todo
-#1 publish to mqtt when images are added or removed
-#3 add another tk element to the gallery view to show the current time
 #6 add accelerometer range calibration
+#7 implment the reboot and shutdown functions
 
 
 
@@ -219,8 +218,7 @@ class CombinedApp:
             if os.path.exists(thumbnail_path):
                 os.remove(thumbnail_path)
             
-            # full_path = os.path.join(self.app.config.root_path, self.app.config['UPLOAD_FOLDER'], filename)
-            #todo remove the image from the slideshow files list
+            #remove the image from the slideshow files list
             self.slideshow_manager.viewer.media_manager.remove_media_file(file_path)
             return redirect(url_for('index'))
 

@@ -42,7 +42,7 @@ class ImageViewer:
     def __init__(self, config_manager: ConfigManager):
         
         #objects
-        self.config_manager = config_manager
+        self.config_manager: ConfigManager = config_manager
         self.media_manager = MediaManager(config_manager.config['image_folder'], config_manager.config['thumbnail_folder'], 200, 200)
         self.media_files = self.media_manager.get_media_files()
         self.media_manager.create_playlist()
@@ -84,7 +84,9 @@ class ImageViewer:
         self.canvas_image = self.current_image.get_processed_image()
         self.update_canvas()
 
+        #mqtt callbacks
         self.image_change_callback = None
+        
         
     def create_ui(self):
         self.root = tk.Tk()
@@ -107,7 +109,6 @@ class ImageViewer:
         self.root.bind('q', self.quit_app)
         self.root.bind('<Left>', self.show_previous_image)
         self.root.bind('<Right>', self.show_next_image)
-        # self.root.bind('<Delete>', self.delete_image)
         self.root.bind('f', self.toggle_fullscreen)
         self.root.bind('s', self.toggle_scale_mode)
         self.root.bind('p', self.pause_slideshow)

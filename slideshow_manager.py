@@ -1,6 +1,7 @@
 import json
 import os
 from queue import Queue
+from config_manager import ConfigManager
 from image_viewer3 import ImageViewer
 import paho.mqtt.client as mqtt
 
@@ -9,7 +10,7 @@ class SlideshowManager:
     def __init__(self, 
                  folder, 
                  config_manager):
-        self.config_manager = config_manager
+        self.config_manager: ConfigManager = config_manager
         self.folder = folder
         self.viewer = None
         self.image_selection_queue = Queue()
@@ -46,7 +47,12 @@ class SlideshowManager:
 
     def start_slideshow(self):
         self.viewer = ImageViewer(self.config_manager)
+        
+        #add callbacks
         self.viewer.image_change_callback = self.publish_current_image
+        self.viewer.media_manager.media_files_changed_callback = self.publish_available_images
+        
+        #initial publishing
         self.publish_available_images()
         self.publish_current_config()
         
@@ -83,6 +89,8 @@ class SlideshowManager:
             print("Failed to connect to MQTT broker")
 
     def on_mqtt_message(self, client, userdata, msg):
+        #TODO test and debug
+        
         if not self.mqtt_connected:
             print("MQTT broker is not connected")
             return
@@ -104,26 +112,26 @@ class SlideshowManager:
         #     elif payload_str == 'off':
         #         self.monitor_controller.set_power_mode('off')
                 
-        if 'display_mode' in base_topic:    
-            self.update_parameters(display_mode=payload_str)
+        if 'display_mode' in base_topic:
+            self.viewer.update_parameters(display_mode=payload_str)
             
         if 'rotation' in base_topic:    
-            self.update_parameters(rotation=int(payload_str))
+            self.viewer.update_parameters(rotation=int(payload_str))
             
         if 'scale_mode' in base_topic:  
-            self.update_parameters(scale_mode=payload_str)
+            self.viewer.update_parameters(scale_mode=payload_str)
             
         if 'slideshow' in base_topic:    
             if payload_str == 'pause':
-                self.pause_slideshow()
+                self.viewer.pause_slideshow()
             elif payload_str == 'resume':
-                self.resume_slideshow()
+                self.viewer.play_slideshow()
             elif payload_str == 'next':
-                self.next_image()
+                self.viewer.show_next_image()
             elif payload_str == 'previous':
-                self.previous_image()
+                self.viewer.show_previous_image()
             elif payload_str == 'quit':
-                self.quit_slideshow()
+                self.close()
                 
         if 'theme' in base_topic:
             self.config_manager.update_parameter('theme', payload_str)
@@ -151,13 +159,13 @@ class SlideshowManager:
                 self.config_manager.update_parameter('auto_rotation', False)
                 
         if 'frame_interval' in base_topic:    
-            self.update_parameters(frame_interval=int(payload_str))
+            self.config_manager.update_parameter(frame_interval=int(payload_str))
             
         if 'transition_duration' in base_topic:    
-            self.update_parameters(transition_duration=int(payload_str))
+            self.config_manager.update_parameter(transition_duration=int(payload_str))
             
         if 'media_orientation_filter' in base_topic:    
-            self.update_parameters(media_orientation_filter=payload_str)
+            self.config_manager.update_parameter(media_orientation_filter=payload_str)
             
     def publish_mqtt_message(self, topic, payload, retain=False):
         if not self.mqtt_connected:
@@ -174,9 +182,6 @@ class SlideshowManager:
         self.publish_mqtt_message(f"{self.config_manager.config['mqtt_topic']}/config", json.dumps(self.config_manager.config))
 
     def publish_available_images(self, *args):
-        # files = self.viewer.images
-        # files = [os.path.basename(file) for file in files]
-        
         files = self.viewer.media_manager.get_media_files()
         files = [os.path.basename(file.filename) for file in files]
         self.publish_mqtt_message(f"{self.config_manager.config['mqtt_topic']}/available_images", json.dumps(files), retain=True)
