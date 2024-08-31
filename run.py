@@ -171,6 +171,7 @@ class CombinedApp:
         @self.app.route(API.upload, methods=['POST'])
         def upload_file():
             if request.method == 'POST':
+                list_was_empty = len(self.slideshow_manager.viewer.media_manager.all_media_files) == 0
                 if 'file' in request.files and request.files['file'].filename != '':
                     files = request.files.getlist('file')
                     for file in files:
@@ -181,7 +182,7 @@ class CombinedApp:
                         thumbnail_path = os.path.join(self.app.config['THUMBNAIL_FOLDER'], filename)
                         create_thumbnail(file_path, thumbnail_path)
                         self.slideshow_manager.viewer.media_manager.add_media_file(os.path.join(self.app.config['UPLOAD_FOLDER'], filename))
-                        
+
                 elif 'image_url' in request.form and request.form['image_url'] != '':
                     image_url = request.form['image_url']
                     filename = save_remote_image(image_url, self.app.config['UPLOAD_FOLDER'])         #duplicate files are checked for in this function
@@ -191,6 +192,10 @@ class CombinedApp:
                         thumbnail_path = os.path.join(self.app.config['THUMBNAIL_FOLDER'], filename)
                         create_thumbnail(file_path, thumbnail_path)
                         self.slideshow_manager.viewer.media_manager.add_media_file(os.path.join(self.app.config['UPLOAD_FOLDER'], filename))
+
+                # if the list was empty, select the first image we've just uploaded
+                if list_was_empty and len(self.slideshow_manager.viewer.media_manager.all_media_files) > 0:
+                    self.slideshow_manager.viewer.select_image(self.slideshow_manager.viewer.media_manager.all_media_files[0].filename)
 
                 return redirect(url_for('index'))
 
@@ -220,6 +225,10 @@ class CombinedApp:
             
             #remove the image from the slideshow files list
             self.slideshow_manager.viewer.media_manager.remove_media_file(file_path)
+
+            if len(self.slideshow_manager.viewer.media_manager.all_media_files) == 0:
+                self.slideshow_manager.viewer.set_image_from_path('static/background.png')
+
             return redirect(url_for('index'))
 
         @self.app.route(API.select, methods=['POST'])

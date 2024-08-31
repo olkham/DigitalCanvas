@@ -91,6 +91,9 @@ class ImageContainer:
         return self.filename == other.filename
 
 
+    def exists(self) -> bool:
+        return os.path.exists(self.file_path)
+
     @property
     def image(self) -> np.ndarray:
         if self._image is None:
@@ -177,7 +180,8 @@ class ImageContainer:
     
     def reload_image(self):
         if self.source == ImageContainer.Source.FILE:
-            self._image = cv2.imread(self.file_path)
+            if self.exists():
+                self._image = cv2.imread(self.file_path)
         
         if self.source == ImageContainer.Source.URL:
             self._image = read_image_from_url(self.file_path)
@@ -237,6 +241,8 @@ class ImageContainer:
         self.has_thumbnail = True
 
     def populate_properties(self):
+        if self._image is None:
+            return
         self.height, self.width = self._image.shape[:2]
         self.is_portrait = self.height > self.width
 
@@ -255,6 +261,9 @@ class ImageContainer:
         return self.processed_image
     
     def process_image(self, target_height, target_width, scale_mode, angle):
+        if not self.exists() and self._image is None:
+            return None
+
         #do the processing of the image once
         self.target_height = target_height
         self.target_width = target_width

@@ -52,6 +52,9 @@ class SlideshowManager:
         self.viewer.image_change_callback = self.publish_current_image
         self.viewer.media_manager.media_files_changed_callback = self.publish_available_images
         
+        if len(self.viewer.media_manager.all_media_files) == 0:
+            self.viewer.set_image_from_path('static/background.png')
+
         #initial publishing
         self.publish_available_images()
         self.publish_current_config()

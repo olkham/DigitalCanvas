@@ -44,7 +44,7 @@ class ImageViewer:
         #objects
         self.config_manager: ConfigManager = config_manager
         self.media_manager = MediaManager(config_manager.config['image_folder'], config_manager.config['thumbnail_folder'], 200, 200)
-        self.media_files = self.media_manager.get_media_files()
+        self.media_manager.get_media_files()
         self.media_manager.create_playlist()
 
         #internal variables    
@@ -58,12 +58,13 @@ class ImageViewer:
         self._transition_job_id = None
         self._media_orientation_filter = None
         
+        # make the UI - sets up the tkinter window and screen size variables
+        self.create_ui()
+
         # the current image as ImageContainer
         self.current_image: ImageContainer = None
         self.canvas_image: np.ndarray = None
-
-        # make the UI
-        self.create_ui()
+        # self.fade_from_image = np.zeros((self.screen_height, self.screen_width, 3), dtype=np.uint8)
 
         #set the initial values from the configuration        
         self.display_mode = self.config_manager.config['display_mode']
@@ -74,14 +75,16 @@ class ImageViewer:
         self.media_orientation_filter = self.config_manager.config['media_orientation_filter']
         
         #preprocess the media
-        self.media_manager.preprocess_media(self.screen_height, 
-                                            self.screen_width, 
-                                            self.scale_mode, 
-                                            self.rotation)
+        # self.media_manager.preprocess_media(self.screen_height, 
+        #                                     self.screen_width, 
+        #                                     self.scale_mode, 
+        #                                     self.rotation)
         
         #set the initial image
         self.current_image = self.media_manager.get_media_by_index(0)
-        self.canvas_image = self.current_image.get_processed_image()
+        if self.current_image is not None:
+            self.current_image.check_processing_parameters(self.screen_height, self.screen_width, self.scale_mode, self.rotation)
+            self.canvas_image = self.current_image.get_processed_image()
         self.update_canvas()
 
         #mqtt callbacks
@@ -220,6 +223,8 @@ class ImageViewer:
     
     @property
     def current_image_name(self):
+        if self.current_image is None:
+            return ''
         return self.current_image.filename
     
     
@@ -275,6 +280,8 @@ class ImageViewer:
         '''
         Update the current displayed image
         '''
+        if self.canvas_image is None:
+            return
         # photo = ImageTk.PhotoImage(cv2_to_pil(self.canvas_image))
         # self.canvas.delete("all")
         # width, height = photo.width(), photo.height()
@@ -292,6 +299,11 @@ class ImageViewer:
         # Store the reference to the photo to prevent garbage collection
         self.canvas.image = photo
     
+    def set_image_from_path(self, path: str):
+        image = ImageContainer()
+        image.from_file(path)
+        self.fade_to_image(image, self.transition_duration)
+
     def set_image_from_url(self, url: str):
         image = ImageContainer()
         image.from_url(url)
@@ -333,6 +345,14 @@ class ImageViewer:
             self.target_image = self.canvas_image
             return
         self.fade_duration = duration
+
+        if self.fade_from_image is None:
+            self.fade_from_image = self.target_image
+        if self.canvas_image is None:
+            self.canvas_image = self.target_image        
+            self.update_canvas()
+            self.fade_in_progress = False
+
         self._fade_step()
 
     def _fade_step(self):
@@ -383,6 +403,8 @@ class ImageViewer:
     
     def show_next_image(self, event=None):
         self.next_image = self.media_manager.get_next_media()
+        if self.next_image is None:
+            return
         self.next_image.check_processing_parameters(self.screen_height, self.screen_width, self.scale_mode, self.rotation)
         
         self.fade_to_image(self.next_image, self.transition_duration)
@@ -393,6 +415,8 @@ class ImageViewer:
 
     def show_previous_image(self, event=None):
         self.next_image = self.media_manager.get_prev_media()
+        if self.next_image is None:
+            return
         self.next_image.check_processing_parameters(self.screen_height, self.screen_width, self.scale_mode, self.rotation)
         
         self.fade_to_image(self.next_image, self.transition_duration)
