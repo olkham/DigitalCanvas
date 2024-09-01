@@ -71,7 +71,6 @@ def check_for_duplicate_files(dir, file):
         file = f"{base}_{i}{ext}"
     return file
     
-    
 def is_raspberry_pi():
     try:
         with open('/proc/device-tree/model') as model_file:
@@ -125,6 +124,22 @@ def is_landscape(image_path):
     with Image.open(image_path) as img:
         return img.width > img.height
     
+def max_usful_size(image_path, max_size):
+    #scale the image so that the minimum image dimension is equal to max_size while keeping the aspect ratio
+    # as save it,overwriting the original image
+    # if the image is already smaller than max_size, return without any action
+    with Image.open(image_path) as img:
+        
+        smallest_dimension = min(img.width, img.height)
+        if smallest_dimension <= max_size:
+            return
+        
+        scale_factor = max_size / smallest_dimension
+        new_width = int(img.width * scale_factor)
+        new_height = int(img.height * scale_factor)
+        img = img.resize((new_width, new_height), Image.LANCZOS)
+        img.save(image_path, quality=90)
+
 
 #if the screen is landscape and the self.orientation is landscape, resize the image to fill the screen keeping the aspect ratio
 #if the screen is portrait and the self.orientation is portrait, resize the image to fill the screen keeping the aspect ratio
@@ -216,15 +231,12 @@ def cv2_crop_center(image, size):
         bottom = top + new_height
         return image[top:bottom, left:right]
 
-
 def quick_read_image(image_path):
     return cv2.cvtColor(np.array(Image.open(image_path)), cv2.COLOR_RGB2BGR)
 
 def cv2_to_pil(cv2_img):
     '''Convert OpenCV image (numpy.ndarray) to PIL Image.'''
-    cv2_img_rgb = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB)
-    pil_img = Image.fromarray(cv2_img_rgb)
-    return pil_img
+    return Image.fromarray(cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB))
 
 def cv2_rotate_image(image, angle):
     '''
@@ -306,10 +318,7 @@ def resize_to_target(src_image, target_image, resize_option):
     else:
         return resized_image
 
-def cv_resize_to_target(src_image, target_image, resize_option):
-    # src_image = cv2.imread(src_image_path)
-    # target_image = cv2.imread(target_image_path)
-    
+def cv_resize_to_target(src_image, target_image, resize_option):   
     if src_image is None or target_image is None:
         raise ValueError("One or both images not found or unable to read")
 
@@ -390,7 +399,6 @@ def cv_resize_to_target_size(src_image, target_height, target_width, resize_opti
         return cropped_image
     else:
         return resized_image
-
 
 def pil_to_cv2(pil_img):
     '''Convert PIL Image to OpenCV image (numpy.ndarray).'''

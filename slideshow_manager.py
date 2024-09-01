@@ -13,55 +13,25 @@ class SlideshowManager:
         self.config_manager: ConfigManager = config_manager
         self.folder = folder
         self.viewer = None
-        self.image_selection_queue = Queue()
         self.check_job = None
         self.mqtt_client = None
         self.mqtt_connected = False
         self.setup_mqtt_client()
-
 
     def get_current_image_name(self):
         if self.viewer:
             return self.viewer.current_image_name
         return ''
 
-
-    # def set_image_selection_queue(self, queue):
-        # self.image_selection_queue = queue
-
-    def select_image(self, filename):
-        self.image_selection_queue.put(filename)
-        self.viewer.root.after_cancel(self.check_job)
-        self.check_job = None
-        self.check_for_image_selection()
-        
-        # if self.viewer:
-            # self.viewer.select_image(filename)
-            
-    def check_for_image_selection(self):
-        if self.image_selection_queue and not self.image_selection_queue.empty():
-            filename = self.image_selection_queue.get()
-            self.viewer.select_image(filename)
-        if self.viewer:
-            self.check_job = self.viewer.root.after(1000, self.check_for_image_selection)
-
     def start_slideshow(self):
         self.viewer = ImageViewer(self.config_manager)
-        
         #add callbacks
         self.viewer.image_change_callback = self.publish_current_image
         self.viewer.media_manager.media_files_changed_callback = self.publish_available_images
-        
-        if len(self.viewer.media_manager.all_media_files) == 0:
-            self.viewer.set_image_from_path('static/background.png')
-
         #initial publishing
         self.publish_available_images()
         self.publish_current_config()
-        
-        self.check_job = self.viewer.root.after(1000, self.check_for_image_selection)
         self.viewer.run()
-
     
     def setup_mqtt_client(self):
         try:
@@ -101,20 +71,20 @@ class SlideshowManager:
         base_topic = msg.topic.replace(self.config_manager.config['mqtt_topic'], "")
         payload_str = msg.payload.decode('utf-8')
 
-        if 'select' in base_topic:
-            self.image_selection_queue.put(payload_str)
+        # if 'select' in base_topic:
+            # self.image_selection_queue.put(payload_str)
 
         # if 'brightness' in base_topic:
         #     brightness = int(payload_str)
         #     if brightness >= 0 and brightness <= 100:
         #         self.monitor_controller.set_luminance(brightness)
-                
+
         # if 'power' in base_topic:
         #     if payload_str == 'on':
         #         self.monitor_controller.set_power_mode('on')
         #     elif payload_str == 'off':
         #         self.monitor_controller.set_power_mode('off')
-                
+
         if 'display_mode' in base_topic:
             self.viewer.update_parameters(display_mode=payload_str)
             
@@ -189,7 +159,6 @@ class SlideshowManager:
         files = [os.path.basename(file.filename) for file in files]
         self.publish_mqtt_message(f"{self.config_manager.config['mqtt_topic']}/available_images", json.dumps(files), retain=True)
 
-    
     def close(self):
         if self.viewer:
             self.viewer.quit_app()
@@ -198,14 +167,7 @@ class SlideshowManager:
         if self.mqtt_client:
             self.mqtt_client.loop_stop()
             self.mqtt_client.disconnect()
-            
+
     def stop(self):
         self.close()
     
-    # def play_slideshow(self):
-    #     if self.viewer:
-    #         self.viewer.resume_slideshow()
-            
-    # def pause_slideshow(self):
-        # if self.viewer:
-            # self.viewer.slideshow_active = False

@@ -200,6 +200,17 @@
                     <input type="checkbox" id="pause_when_plex_playing" name="pause_when_plex_playing" onchange="toggleAllowPlex()" {% if pause_when_plex_playing %}checked{% endif %}>
                 </div>
             </div>
+
+
+            <hr>
+
+            <h2>System Control</h2>
+            <div class="controls">
+                <button onclick="confirmAction('reboot')">Reboot</button>
+                <button onclick="confirmAction('shutdown')">Shutdown</button>
+            </div>
+
+
         </div>
 
         <h2>Gallery
@@ -234,6 +245,29 @@
         </div>
 
         <script>
+
+        function confirmAction(action) {
+            if (confirm(`Are you sure you want to ${action} the system?`)) {
+                sendPowerControl(action);
+            }
+        }
+
+        function sendPowerControl(action) {
+            fetch("{{ url_for('power_control') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'action=' + action
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Success:', data);
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
 
         function saveScreenControlSettings() {
             const timeOn = document.getElementById('time-on').value;

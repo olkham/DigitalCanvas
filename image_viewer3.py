@@ -16,8 +16,6 @@
 # - ImageContainer
 # - ConfigManager
 # from utils import cv2_crop_center, cv2_rotate_image, cv2_to_pil, cv_resize_to_target, quick_read_image
-
-
 # the application will show an image based on the configuration settings
 # images will be displayed for a set amount of time, frame_interval, before transitioning to the next image
 # the transition will be a crossfade effect and last for a duration transition_duration
@@ -58,13 +56,14 @@ class ImageViewer:
         self._transition_job_id = None
         self._media_orientation_filter = None
         
+        self.photo = None
+        
         # make the UI - sets up the tkinter window and screen size variables
         self.create_ui()
 
         # the current image as ImageContainer
         self.current_image: ImageContainer = None
         self.canvas_image: np.ndarray = None
-        # self.fade_from_image = np.zeros((self.screen_height, self.screen_width, 3), dtype=np.uint8)
 
         #set the initial values from the configuration        
         self.display_mode = self.config_manager.config['display_mode']
@@ -73,13 +72,7 @@ class ImageViewer:
         self.frame_interval = self.config_manager.config['frame_interval']
         self.transition_duration = self.config_manager.config['transition_duration']
         self.media_orientation_filter = self.config_manager.config['media_orientation_filter']
-        
-        #preprocess the media
-        # self.media_manager.preprocess_media(self.screen_height, 
-        #                                     self.screen_width, 
-        #                                     self.scale_mode, 
-        #                                     self.rotation)
-        
+               
         #set the initial image
         self.current_image = self.media_manager.get_media_by_index(0)
         if self.current_image is not None:
@@ -118,7 +111,6 @@ class ImageViewer:
         self.root.bind('r', self.play_slideshow)
         self.root.bind('a', self.rotate_image)
         self.root.focus_set()
-
     
     @property
     def display_mode(self):
@@ -137,7 +129,6 @@ class ImageViewer:
                     self.root.geometry("800x600")
                     self.root.config(cursor="arrow")
                 self.config_manager.update_parameter('display_mode', mode)
-
 
     @property
     def scale_mode(self):
@@ -167,7 +158,6 @@ class ImageViewer:
                     self.current_image.check_processing_parameters(self.screen_height, self.screen_width, self.scale_mode, self.rotation)
                     self.fade_to_image(self.current_image, self.transition_duration)
                     
-
     @property
     def slideshow_active(self):
         return self._slideshow_active
@@ -181,7 +171,6 @@ class ImageViewer:
                 else:
                     self._slideshow_active = False
 
-    
     @property
     def frame_interval(self):
         return self._frame_interval
@@ -198,7 +187,6 @@ class ImageViewer:
     def transition_duration(self, duration):
         self._transition_duration = duration
     
-    
     @property
     def next_image_job_id(self):
         return self._next_image_job_id
@@ -208,7 +196,6 @@ class ImageViewer:
         if self._next_image_job_id is not None:
             self.root.after_cancel(self._next_image_job_id)
         self._next_image_job_id = id
-    
     
     @property
     def transition_job_id(self):
@@ -220,13 +207,11 @@ class ImageViewer:
             self.root.after_cancel(self._transition_job_id)
         self._transition_job_id = id
     
-    
     @property
     def current_image_name(self):
         if self.current_image is None:
             return ''
         return self.current_image.filename
-    
     
     @property
     def media_orientation_filter(self):
@@ -256,7 +241,6 @@ class ImageViewer:
     def rotate_image(self, event=None):
         self.rotation = (self.rotation + 90) % 360
            
-           
     def update_parameters(self, display_mode=None, scale_mode=None, rotation=None, frame_interval=None, transition_duration=None,
                           auto_brightness=None, auto_rotation=None, media_orientation_filter=None):
         if display_mode is not None:
@@ -282,22 +266,25 @@ class ImageViewer:
         '''
         if self.canvas_image is None:
             return
-        # photo = ImageTk.PhotoImage(cv2_to_pil(self.canvas_image))
-        # self.canvas.delete("all")
-        # width, height = photo.width(), photo.height()
-        # self.canvas.create_image(width // 2, height // 2, anchor=tk.CENTER, image=photo)
-        # self.canvas.image = photo
-        photo = ImageTk.PhotoImage(cv2_to_pil(self.canvas_image))
-        width, height = photo.width(), photo.height()
-        # Check if an image already exists on the canvas
-        if hasattr(self.canvas, 'image_id'):
-            # Update the existing image
-            self.canvas.itemconfig(self.canvas.image_id, image=photo)
+        
+        # Convert OpenCV image to PIL image and create PhotoImage
+        pil_image = cv2_to_pil(self.canvas_image)
+        if self.photo is None:
+            self.photo = ImageTk.PhotoImage(pil_image)
         else:
-            # Create a new image if it doesn't exist
-            self.canvas.image_id = self.canvas.create_image(width // 2, height // 2, anchor=tk.CENTER, image=photo)
+            self.photo.paste(pil_image)
+        
+        # Get image dimensions
+        width, height = self.photo.width(), self.photo.height()
+        
+        # Check if an image already exists on the canvas and update or create it
+        if hasattr(self.canvas, 'image_id'):
+            self.canvas.itemconfig(self.canvas.image_id, image=self.photo)
+        else:
+            self.canvas.image_id = self.canvas.create_image(width // 2, height // 2, anchor=tk.CENTER, image=self.photo)
+        
         # Store the reference to the photo to prevent garbage collection
-        self.canvas.image = photo
+        self.canvas.image = self.photo
     
     def set_image_from_path(self, path: str):
         image = ImageContainer()
@@ -373,9 +360,9 @@ class ImageViewer:
         )
 
         self.update_canvas()
-
+        
         if progress < 1.0:
-            self.transition_job_id = self.root.after(16, self._fade_step)  # Approximately 30 FPS
+            self.transition_job_id = self.root.after(10, self._fade_step)  # Approximately 30 FPS
         else:
             self.fade_in_progress = False
             if self.slideshow_active:
@@ -399,6 +386,9 @@ class ImageViewer:
             #slideshow is already running and a scheduled id is set
             return
         self.slideshow_active = True
+        if self.canvas_image is None:
+            self.show_next_image()
+            
         self.next_image_job_id = self.root.after(int(self.frame_interval * 1000), self.show_next_image)
     
     def show_next_image(self, event=None):

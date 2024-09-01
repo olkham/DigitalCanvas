@@ -28,7 +28,9 @@ from utils import (
     create_thumbnails_for_existing_images,
     get_thumbnail,
     get_title,
+    is_raspberry_pi,
     luminance_to_brightness,
+    max_usful_size,
     read_image_from_url,
     replace_webp_extension,
     save_remote_image,
@@ -76,7 +78,7 @@ class API:
     configure_plex = f'/configure/plex'
     plex_hook = f'/plex_hook'
     
-    shutdown = f'/shutdown'
+    power_control = f'/power_control'
 
 
 class CombinedApp:
@@ -179,6 +181,7 @@ class CombinedApp:
                         filename = check_for_duplicate_files(self.app.config['UPLOAD_FOLDER'], filename)
                         file_path = os.path.join(self.app.config['UPLOAD_FOLDER'], filename)
                         file.save(file_path)
+                        max_usful_size(file_path, max_size=max(self.slideshow_manager.viewer.screen_width, self.slideshow_manager.viewer.screen_height))
                         thumbnail_path = os.path.join(self.app.config['THUMBNAIL_FOLDER'], filename)
                         create_thumbnail(file_path, thumbnail_path)
                         self.slideshow_manager.viewer.media_manager.add_media_file(os.path.join(self.app.config['UPLOAD_FOLDER'], filename))
@@ -189,9 +192,12 @@ class CombinedApp:
                     filename = replace_webp_extension(filename)
                     if filename:
                         file_path = os.path.join(self.app.config['UPLOAD_FOLDER'], filename)
+                        max_usful_size(file_path, max_size=max(self.slideshow_manager.viewer.screen_width, self.slideshow_manager.viewer.screen_height))
                         thumbnail_path = os.path.join(self.app.config['THUMBNAIL_FOLDER'], filename)
                         create_thumbnail(file_path, thumbnail_path)
                         self.slideshow_manager.viewer.media_manager.add_media_file(os.path.join(self.app.config['UPLOAD_FOLDER'], filename))
+
+                self.slideshow_manager.viewer.media_manager.filter_media_by_orientation(self.config_manager.config['media_orientation_filter'])
 
                 # if the list was empty, select the first image we've just uploaded
                 if list_was_empty and len(self.slideshow_manager.viewer.media_manager.all_media_files) > 0:
@@ -424,6 +430,15 @@ class CombinedApp:
                 return '', 204
             return '', 204
 
+        @self.app.route(API.power_control, methods=['POST'])
+        def power_control():
+            action = request.form.get('action')
+            if action == 'shutdown':
+                self.shutdown()
+            elif action == 'restart':
+                self.restart()
+            return '', 204
+
     def monitor_sensor(self):
         previous_media_orientation_filter = None
         previous_brightness = None
@@ -479,21 +494,20 @@ class CombinedApp:
         sensor_thread.join()
 
     def shutdown(self):
-        #todo: add a confirmation dialog
-        # self.monitor_controller.set_power_mode('off')
-        self.slideshow_manager.viewer.quit_slideshow()
-        self.sensor_reader.stop()
-        os.system("sudo shutdown -h now")
+        if is_raspberry_pi():
+            os.system("sudo shutdown -h now")
 
     def restart(self):
-        #todo: add a confirmation dialog
-        # self.monitor_controller.set_power_mode('off')
-        self.slideshow_manager.stop()
-        self.sensor_reader.stop()
-        os.system("sudo reboot")
+        if is_raspberry_pi():
+            os.system("sudo reboot")
 
 
-if __name__ == '__main__':
+def main():
     config_manager = ConfigManager('config.json')   
     app = CombinedApp(config_manager)
     app.run()
+
+
+if __name__ == '__main__':
+    main()
+
