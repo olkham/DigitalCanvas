@@ -109,14 +109,15 @@ class ImageContainer:
             self.populate_properties()
 
 
-    def from_file(self, file_path, thumbnail_dir=None, thumbnail_width=100, thumbnail_height=100):
+    def from_file(self, file_path, thumbnail_dir=None, thumbnail_width=100, thumbnail_height=100, read_image=False):
         
         #strings
         self.file_path: str = file_path
         self.filename = os.path.basename(file_path)
 
         #image data
-        self._image = cv2.imread(file_path)
+        if read_image:
+            self._image = cv2.imread(file_path)
 
         #properties
         self.thumbnail_height = thumbnail_height
@@ -128,14 +129,15 @@ class ImageContainer:
         self.source = ImageContainer.Source.FILE
         return self
 
-    def from_url(self, url, thumbnail_dir=None, thumbnail_width=100, thumbnail_height=100):
+    def from_url(self, url, thumbnail_dir=None, thumbnail_width=100, thumbnail_height=100, read_image=False):
             
         #strings
         self.file_path: str = url
         self.filename = os.path.basename(url)
 
         #image data
-        self._image = read_image_from_url(url)
+        if read_image:
+            self._image = read_image_from_url(url)
 
         #properties
         self.thumbnail_height = thumbnail_height
@@ -147,7 +149,7 @@ class ImageContainer:
         self.source = ImageContainer.Source.URL
         return self
 
-    def from_image(self, image, filename='', thumbnail_dir=None, thumbnail_width=100, thumbnail_height=100):
+    def from_image(self, image, filename='', thumbnail_dir=None, thumbnail_width=100, thumbnail_height=100):  
         #strings
         self.file_path: str = '_from_image_'
         self.filename = filename
@@ -221,7 +223,7 @@ class ImageContainer:
         self.thumbnail_path = os.path.join(thumbnail_dir, self.filename)
         if os.path.exists(self.thumbnail_path):
             self.has_thumbnail = True
-            self.check_thumnail_size(self.thumbnail_width, self.thumbnail_height)
+            # self.check_thumnail_size(self.thumbnail_width, self.thumbnail_height)
         else:
             self.has_thumbnail = False
             self.create_thumbnail(self.thumbnail_width, self.thumbnail_height)
