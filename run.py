@@ -454,6 +454,7 @@ class CombinedApp:
             if self.config_manager.config['auto_brightness']:
                 luminance = self.sensor_reader.read_veml7700_light()
                 brightness = luminance_to_brightness(luminance, min_value=self.config_manager['light_sensor_min_reading'], max_value=self.config_manager['light_sensor_max_reading'])
+                print(f"Current brightness: {brightness} from luminance: {luminance}")
                 if brightness != previous_brightness:
                     self.monitor_controller.set_luminance(brightness)
                     previous_brightness = brightness

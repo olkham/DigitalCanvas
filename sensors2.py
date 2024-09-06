@@ -1,26 +1,31 @@
 import time
 import platform
+import importlib
+
+def import_module(module_name):
+    try:
+        return importlib.import_module(module_name)
+    except (ImportError, NotImplementedError) as e:
+        print(f"Error importing {module_name}: {e}")
+        return None
+
+# Check if running on Windows
+is_windows = platform.system() == "Windows"
 
 # Import sensor libraries conditionally
-# This is to prevent errors when running on a system without the required hardware
-# For example, the VEML7700 sensor requires the board and busio libraries from the Adafruit Blinka package
-# The BMI160 sensor requires the BMI160_i2c library
-# If the required libraries are not available, the code will run in simulation mode
-# The simulation mode allows you to test the code without the actual hardware
-# You can set the simulated values using the set_simulated_accel and set_simulated_light methods
-# The simulated values will be returned by the read_bmi160_accel and read_veml7700_light methods
-
-try:
-    import board
-    import busio
-except NotImplementedError:
+if not is_windows:
+    board = import_module('board')
+    busio = import_module('busio')
+    try:
+        adafruit_veml7700 = import_module('adafruit_veml7700')
+    except Exception as e:
+        print(f"Failed to import adafruit_veml7700: {e}")
+        adafruit_veml7700 = None
+else:
     board = None
     busio = None
-
-try:
-    import adafruit_veml7700
-except NotImplementedError:
     adafruit_veml7700 = None
+    print("Running on Windows. Sensor libraries not available. Will use simulation mode.")
 
 try:
     from BMI160_i2c import Driver
@@ -39,27 +44,36 @@ class SensorReader:
         self.simulated_light = 0
 
         # Initialize VEML7700
+        if not is_windows and adafruit_veml7700:
+            self.veml7700 = self.init_veml7700()
+        if self.veml7700 is None:
+            self.simulation_mode_veml7700 = True
+            print("VEML7700 initialization failed or not available. Using simulation mode.")
+
+        # Initialize BMI160
+        if not is_windows and Driver:
+            try:
+                self.bmi160 = Driver(0x69)  # Change address if needed
+                print("BMI160 sensor initialized successfully.")
+            except Exception as e:
+                print(f"Failed to initialize BMI160 sensor: {e}")
+                self.simulation_mode_bmi160 = True
+        else:
+            self.simulation_mode_bmi160 = True
+            print("BMI160 initialization failed or not available. Using simulation mode.")
+
+    def init_veml7700(self):
         try:
             if board and busio and adafruit_veml7700:
                 i2c = busio.I2C(board.SCL, board.SDA)
-                self.veml7700 = adafruit_veml7700.VEML7700(i2c)
+                veml7700 = adafruit_veml7700.VEML7700(i2c)
                 print("VEML7700 sensor initialized successfully.")
+                return veml7700
             else:
                 raise NotImplementedError("VEML7700 dependencies not available.")
         except Exception as e:
-            print(f"Failed to initialize VEML7700 sensor: {e}")
-            self.simulation_mode_veml7700 = True
-
-        # Initialize BMI160
-        try:
-            if Driver:
-                self.bmi160 = Driver(0x69)  # Change address if needed
-                print("BMI160 sensor initialized successfully.")
-            else:
-                raise NotImplementedError("BMI160 dependencies not available.")
-        except Exception as e:
-            print(f"Failed to initialize BMI160 sensor: {e}")
-            self.simulation_mode_bmi160 = True
+            print(f"An error occurred while initializing VEML7700: {e}")
+        return None
 
     def read_bmi160_accel(self):
         if self.simulation_mode_bmi160:

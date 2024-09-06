@@ -521,3 +521,12 @@ def check_admin_privileges():
     else:
         return False
 
+def read_image_properties(image_path):
+    with Image.open(image_path) as img:
+        properties = {
+            "format": img.format,
+            "mode": img.mode,
+            "size": img.size,  # (width, height)
+            "info": img.info
+        }
+    return properties

@@ -3,7 +3,7 @@ import os
 # import random
 import cv2
 import numpy as np
-from utils import cv2_crop_center, read_image_from_url, cv_resize_to_target_size, cv2_rotate_image
+from utils import cv2_crop_center, read_image_from_url, cv_resize_to_target_size, cv2_rotate_image, read_image_properties
 
 from typing import List, Optional
 from enum import Enum
@@ -244,8 +244,12 @@ class ImageContainer:
 
     def populate_properties(self):
         if self._image is None:
-            return
-        self.height, self.width = self._image.shape[:2]
+            #read the properties from the file without loading the image
+            size = read_image_properties(self.file_path)['size']
+            self.width, self.height = size
+        else:
+            self.height, self.width = self._image.shape[:2]
+            
         self.is_portrait = self.height > self.width
 
         if self.is_portrait:
