@@ -19,16 +19,20 @@ from flask import (
 
 from config_manager import ConfigManager
 from monitor_controller import MonitorController
-from sensors2 import SensorReader
+from sensors import SensorReader
 from slideshow_manager import SlideshowManager
 from utils import (
     accel_to_orientation,
+    accel_to_rotation,
     check_for_duplicate_files,
     create_thumbnail,
     create_thumbnails_for_existing_images,
+    get_mean_value,
+    get_mean_values,
     get_thumbnail,
     get_title,
     is_raspberry_pi,
+    lerp,
     luminance_to_brightness,
     max_usful_size,
     read_image_from_url,
@@ -404,8 +408,14 @@ class CombinedApp:
         def plex_hook():
             if self.config_manager['allow_plex']:
             # if True:
-                payload = request.form['payload']
-                payload = json.loads(payload)
+                payload_str = request.form.get('payload')
+                
+                if payload_str is None:
+                    payload_str = request.data.decode('utf-8')
+                    payload = json.loads(json.loads(payload_str)['payload'])
+                else:
+                    payload = json.loads(payload_str)
+
                 if payload['event'] == 'media.play' or payload['event'] == 'media.resume':
                     thumb_url = get_thumbnail(payload)
                     media_title = get_title(payload)
@@ -422,13 +432,13 @@ class CombinedApp:
                             print(f"Failed to fetch image from Plex server on port {self.config_manager.config['plex_port']}")
                             # print("Disabling Plex server integration")
                             # self.config_manager.update_parameter('allow_plex', False)
-                            return '', 404
+                            return jsonify(success=False), 500
 
                 elif payload['event'] == 'media.stop' or payload['event'] == 'media.pause':
                     if self.slideshow_manager.viewer is not None:
                         self.slideshow_manager.viewer.play_slideshow()
-                return '', 204
-            return '', 204
+                return jsonify(success=True), 200
+            return jsonify(success=False), 403
 
         @self.app.route(API.power_control, methods=['POST'])
         def power_control():
@@ -442,22 +452,47 @@ class CombinedApp:
     def monitor_sensor(self):
         previous_media_orientation_filter = None
         previous_brightness = None
-
+        previous_rotation = self.config_manager['rotation']
+        
+        smoothing_window = 10
+        smooth_accel = [None]*smoothing_window
+        smooth_luminance = [None]*smoothing_window
+        smooth_index = 0
+        
+        while self.slideshow_manager.viewer is None:
+            time.sleep(1)
+        
         while True:
+            
             if self.config_manager.config['auto_rotation']:
                 accel = self.sensor_reader.read_bmi160_accel()
-                media_orientation_filter = accel_to_orientation(accel)
-                if media_orientation_filter != previous_media_orientation_filter:
-                    self.slideshow_manager.viewer.update_parameters(media_orientation_filter=media_orientation_filter)
-                    previous_media_orientation_filter = media_orientation_filter
+                smooth_accel[smooth_index] = accel
+                smoothed_accel = get_mean_values(smooth_accel)
+                
+                angle = accel_to_rotation(smoothed_accel)
+                # print(f"Current angle: {angle}")
+                if angle != previous_rotation:
+                    self.slideshow_manager.viewer.update_parameters(rotation=angle)
+                    previous_rotation = angle
+
+                # media_orientation_filter = accel_to_orientation(smoothed_accel)
+                # print(f"Current orientation: {media_orientation_filter} from accel: {smoothed_accel}")
+                # if media_orientation_filter != previous_media_orientation_filter:
+                    # self.slideshow_manager.viewer.update_parameters(media_orientation_filter=media_orientation_filter)
+                    # previous_media_orientation_filter = media_orientation_filter
 
             if self.config_manager.config['auto_brightness']:
                 luminance = self.sensor_reader.read_veml7700_light()
-                brightness = luminance_to_brightness(luminance, min_value=self.config_manager['light_sensor_min_reading'], max_value=self.config_manager['light_sensor_max_reading'])
-                print(f"Current brightness: {brightness} from luminance: {luminance}")
+                smooth_luminance[smooth_index] = luminance
+                smoothed_luminance = get_mean_value(smooth_luminance)
+                brightness = int(lerp(smoothed_luminance, self.config_manager['light_sensor_min_reading'], self.config_manager['light_sensor_max_reading'], 0, 100))
+                # brightness = luminance_to_brightness(smoothed_luminance, min_value=self.config_manager['light_sensor_min_reading'], max_value=self.config_manager['light_sensor_max_reading'])
+                # print(f"Current brightness: {brightness} from luminance: {luminance}")
                 if brightness != previous_brightness:
                     self.monitor_controller.set_luminance(brightness)
                     previous_brightness = brightness
+            
+            smooth_index = (smooth_index + 1) % smoothing_window
             
             # if self.config_manager.config['time_on'] is not None and self.config_manager.config['time_off'] is not None:
             if self.config_manager.config['time_on'] != self.config_manager.config['time_off']:
@@ -476,7 +511,7 @@ class CombinedApp:
                             self.monitor_controller.set_power_mode('off')
                             print(f"Turning off the display at {current_time}")
             
-            time.sleep(1)
+            time.sleep(0.1)
 
     def run_flask(self):
         self.app.run(host='0.0.0.0', port=self.config_manager.config['web_interface_port'], debug=False, use_reloader=False)

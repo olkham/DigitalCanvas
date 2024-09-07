@@ -475,9 +475,15 @@ def strtobool (val):
         raise ValueError("invalid truth value %r" % (val,))
     
 def accel_to_orientation(accel):
+    
+    if type(accel) is dict:
+        x, y, z = accel['ax'], accel['ay'], accel['az']
+    else:
+        x, y, z = accel
+    
     # x, y, z = accel
-    # print(f'x: {x}, y: {y}, z: {z}')
-    if abs(accel['ax']) > abs(accel['ay']):
+    # this mapping it dependent on the orientation of the sensor
+    if abs(x) > abs(y):
         return 'landscape'
     return 'portrait'
 
@@ -494,6 +500,13 @@ def luminance_to_brightness(luminance, min_value=300, max_value=2000):
     brightness = (rescale_luminance(luminance, min_value, max_value) / max_value) * 100
     brightness = clamp(brightness, 0, 100)
     return int(brightness)
+
+def lerp(value, min_val, max_val, new_min, new_max, clamp_output=True):
+    new_value = (value - min_val) / (max_val - min_val) * (new_max - new_min) + new_min
+    if clamp_output:
+        new_value = clamp(new_value, new_min, new_max)
+        
+    return new_value
 
 def check_os():
     if platform.system() == "Windows":
@@ -530,3 +543,43 @@ def read_image_properties(image_path):
             "info": img.info
         }
     return properties
+
+def get_mean_value(array):
+    values = [value for value in array if value is not None]
+    if values:
+        mean = sum(values) / len(values)
+        return mean
+    else:
+        return None
+    
+def get_mean_values(array):
+    x_values = [item['ax'] for item in array if item is not None and item['ax'] is not None]
+    y_values = [item['ay'] for item in array if item is not None and item['ay'] is not None]
+    z_values = [item['az'] for item in array if item is not None and item['az'] is not None]
+    
+    x_mean = sum(x_values) / len(x_values) if x_values else None
+    y_mean = sum(y_values) / len(y_values) if y_values else None
+    z_mean = sum(z_values) / len(z_values) if z_values else None
+
+    return x_mean, y_mean, z_mean
+
+
+def accel_to_rotation(accel):
+    if type(accel) is dict:
+        x, y, z = accel['ax'], accel['ay'], accel['az']
+    else:
+        x, y, z = accel
+    
+    #invert the sign of x to match the orientation of the sensor        
+    x = x * -1
+
+    if x > 0.8:
+        return 0
+    elif x < -0.8:
+        return 180
+    elif y > 0.8:
+        return 90
+    elif y < -0.8:
+        return 270
+    else:
+        return 0

@@ -315,6 +315,9 @@ class ImageViewer:
         self.next_image_job_id = None
         self.transition_job_id = None
         image = self.media_manager.get_media_by_filename(image_name)
+        if image is None:
+            print(f"Image {image_name} not found")
+            return
         image.check_processing_parameters(self.screen_height, self.screen_width, self.scale_mode, self.rotation)
         self.fade_to_image(image, self.transition_duration)
     

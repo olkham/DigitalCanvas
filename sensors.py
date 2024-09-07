@@ -1,62 +1,167 @@
-import smbus2
 import time
-import board
-import busio
-import adafruit_veml7700
-from bmi160 import BMI160_I2C
+import platform
+import importlib
+
+def import_module(module_name):
+    try:
+        return importlib.import_module(module_name)
+    except (ImportError, NotImplementedError) as e:
+        print(f"Error importing {module_name}: {e}")
+        return None
+
+# Check if running on Windows
+is_windows = platform.system() == "Windows"
+
+# Import sensor libraries conditionally
+if not is_windows:
+    board = import_module('board')
+    busio = import_module('busio')
+    try:
+        adafruit_veml7700 = import_module('adafruit_veml7700')
+    except Exception as e:
+        print(f"Failed to import adafruit_veml7700: {e}")
+        adafruit_veml7700 = None
+else:
+    board = None
+    busio = None
+    adafruit_veml7700 = None
+    print("Running on Windows. Sensor libraries not available. Will use simulation mode.")
+
+try:
+    from BMI160_i2c import Driver
+except (NotImplementedError, ModuleNotFoundError) as e:
+    if isinstance(e, ModuleNotFoundError) and e.name == 'fcntl':
+        print("BMI160_i2c library is not compatible with Windows.")
+    Driver = None
+
 
 class SensorReader:
-    def __init__(self, i2c_bus=1):
-        self.bus = smbus2.SMBus(i2c_bus)
-        
-        # BMI150 addresses and registers
-        self.BMI150_ADDR = 0x69
-        self.BMI150_REG_ACCEL_X = 0x12
-        self.BMI150_REG_ACCEL_Y = 0x14
-        self.BMI150_REG_ACCEL_Z = 0x16
-        
-        # Initialize I2C for VEML7700
-        i2c = busio.I2C(board.SCL, board.SDA)
-        self.veml7700 = adafruit_veml7700.VEML7700(i2c)
-        
-        # Initialize sensors
-        self.init_bmi150()
+    def __init__(self):
+        self.veml7700 = None
+        self.bmi160 = None
+        self.simulation_mode_veml7700 = False
+        self.simulation_mode_bmi160 = False
+        self.simulated_accel = {'ax': 0, 'ay': 1, 'az': 0}
+        self.simulated_light = 0
 
-    def init_bmi150(self):
-        # Initialize BMI150 (if needed)
-        pass
+        # Initialize VEML7700
+        if not is_windows and adafruit_veml7700:
+            self.veml7700 = self.init_veml7700()
+        if self.veml7700 is None:
+            self.simulation_mode_veml7700 = True
+            print("VEML7700 initialization failed or not available. Using simulation mode.")
 
-    def read_bmi150_accel(self):
-        x = self.read_word_2c(self.BMI150_ADDR, self.BMI150_REG_ACCEL_X)
-        y = self.read_word_2c(self.BMI150_ADDR, self.BMI150_REG_ACCEL_Y)
-        z = self.read_word_2c(self.BMI150_ADDR, self.BMI150_REG_ACCEL_Z)
-        return {'x': x, 'y': y, 'z': z}
+        # Initialize BMI160
+        if not is_windows and Driver:
+            try:
+                self.bmi160 = Driver(0x69)  # Change address if needed
+                print("BMI160 sensor initialized successfully.")
+            except Exception as e:
+                print(f"Failed to initialize BMI160 sensor: {e}")
+                self.simulation_mode_bmi160 = True
+        else:
+            self.simulation_mode_bmi160 = True
+            print("BMI160 initialization failed or not available. Using simulation mode.")
+
+    def init_veml7700(self):
+        try:
+            if board and busio and adafruit_veml7700:
+                i2c = busio.I2C(board.SCL, board.SDA)
+                veml7700 = adafruit_veml7700.VEML7700(i2c)
+                print("VEML7700 sensor initialized successfully.")
+                return veml7700
+            else:
+                raise NotImplementedError("VEML7700 dependencies not available.")
+        except Exception as e:
+            print(f"An error occurred while initializing VEML7700: {e}")
+        return None
+
+    def read_bmi160_accel(self):
+        if self.simulation_mode_bmi160:
+            return self.simulated_accel
+        if self.bmi160:
+            try:
+                data = self.bmi160.getMotion6()
+                return {
+                    'ax': round(data[3]/16384, 3),
+                    'ay': round(data[4]/16384, 3),
+                    'az': round(data[5]/16384, 3)
+                }
+            except Exception as e:
+                print(f"Failed to read from BMI160 sensor: {e}")
+                return None
+        else:
+            print("BMI160 sensor is not initialized.")
+            return None
 
     def read_veml7700_light(self):
-        return self.veml7700.lux
-
-    def read_word(self, addr, reg):
-        high = self.bus.read_byte_data(addr, reg)
-        low = self.bus.read_byte_data(addr, reg + 1)
-        val = (high << 8) + low
-        return val
-
-    def read_word_2c(self, addr, reg):
-        val = self.read_word(addr, reg)
-        if val >= 0x8000:
-            return -((65535 - val) + 1)
+        if self.simulation_mode_veml7700:
+            return self.simulated_light
+        if self.veml7700:
+            try:
+                return self.veml7700.lux
+            except Exception as e:
+                print(f"Failed to read from VEML7700 sensor: {e}")
+                return None
         else:
-            return val
+            print("VEML7700 sensor is not initialized.")
+            return None
+        
+    def read_accel_smooth(self, n=5):
+        if self.simulation_mode_bmi160:
+            return self.simulated_accel
+        if self.bmi160:
+            try:
+                data = [self.bmi160.getMotion6() for _ in range(n)]
+                accel = [sum(d[i] for d in data) / n for i in range(3)]
+                return {'ax': round(accel[0]/16384, 3),
+                        'ay': round(accel[1]/16384, 3),
+                        'az': round(accel[2]/16384, 3)}
+            except Exception as e:
+                print(f"Failed to read from BMI160 sensor: {e}")
+                return None
+        else:
+            print("BMI160 sensor is not initialized.")
+            return None
+        
+    def read_light_smooth(self, n=5):
+        if self.simulation_mode_veml7700:
+            return self.simulated_light
+        if self.veml7700:
+            try:
+                light = [self.veml7700.lux for _ in range(n)]
+                return sum(light) / n
+            except Exception as e:
+                print(f"Failed to read from VEML7700 sensor: {e}")
+                return None
+        else:
+            print("VEML7700 sensor is not initialized.")
+            return None
+
+    def set_simulated_accel(self, ax, ay, az):
+        self.simulated_accel = {'ax': ax, 'ay': ay, 'az': az}
+
+    def set_simulated_light(self, lux):
+        self.simulated_light = lux
 
     def close(self):
-        self.bus.close()
+        # No explicit close method needed for these libraries
+        pass
+    
+    def stop(self):
+        self.close()
+        
 
 # Example usage
 if __name__ == "__main__":
     sensor_reader = SensorReader()
+    if sensor_reader.simulation_mode_veml7700:
+        sensor_reader.set_simulated_light(100.0)
+    if sensor_reader.simulation_mode_bmi160:
+        sensor_reader.set_simulated_accel(1.0, 0.0, 0.0)
     try:
         while True:
-            accel = sensor_reader.read_bmi150_accel()
+            accel = sensor_reader.read_bmi160_accel()
             light = sensor_reader.read_veml7700_light()
             print(f"Accelerometer: {accel}, Light: {light}")
             time.sleep(1)
