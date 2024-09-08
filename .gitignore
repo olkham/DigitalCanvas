@@ -2,6 +2,7 @@ __pycache__/
 _archive/
 /images/*
 __pycache__/*.pyc
+__pycache__\*.pyc
 __pycache__/utils.cpython-38.pyc
 __pycache__/slideshow_manager.cpython-38.pyc
 __pycache__/image_viewer.cpython-38.pyc
