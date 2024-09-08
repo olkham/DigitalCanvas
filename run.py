@@ -22,7 +22,6 @@ from monitor_controller import MonitorController
 from sensors import SensorReader
 from slideshow_manager import SlideshowManager
 from utils import (
-    accel_to_orientation,
     accel_to_rotation,
     check_for_duplicate_files,
     create_thumbnail,
@@ -33,7 +32,6 @@ from utils import (
     get_title,
     is_raspberry_pi,
     lerp,
-    luminance_to_brightness,
     max_usful_size,
     read_image_from_url,
     replace_webp_extension,
@@ -47,9 +45,9 @@ from utils import (
 # log.setLevel(logging.ERROR)
 
 # todo
-#6 add accelerometer range calibration
-#7 implment the reboot and shutdown functions
-
+#1 add random image selection option to web interface
+#2 improve web interface look
+#3 test the mqtt functionality
 
 
 class API:
@@ -445,8 +443,8 @@ class CombinedApp:
             action = request.form.get('action')
             if action == 'shutdown':
                 self.shutdown()
-            elif action == 'restart':
-                self.restart()
+            elif action == 'reboot':
+                self.reboot()
             return '', 204
 
     def monitor_sensor(self):
@@ -504,11 +502,13 @@ class CombinedApp:
                         if not self.on_trigger:
                             self.on_trigger = True
                             self.monitor_controller.set_power_mode('on')
+                            self.slideshow_manager.viewer.play_slideshow()
                             print(f"Turning on the display at {current_time}")
                     else:
                         if self.on_trigger:
                             self.on_trigger = False
                             self.monitor_controller.set_power_mode('off')
+                            self.slideshow_manager.viewer.pause_slideshow()
                             print(f"Turning off the display at {current_time}")
             
             time.sleep(0.1)
@@ -533,7 +533,7 @@ class CombinedApp:
         if is_raspberry_pi():
             os.system("sudo shutdown -h now")
 
-    def restart(self):
+    def reboot(self):
         if is_raspberry_pi():
             os.system("sudo reboot")
 
