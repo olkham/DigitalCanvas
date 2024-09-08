@@ -3,7 +3,7 @@ import os
 # import random
 import cv2
 import numpy as np
-from utils import cv2_crop_center, read_image_from_url, cv_resize_to_target_size, cv2_rotate_image, read_image_properties
+from utils import cv2_crop_center, overlay_center, read_image_from_url, cv_resize_to_target_size, cv2_rotate_image, read_image_properties
 
 from typing import List, Optional
 from enum import Enum
@@ -30,6 +30,7 @@ class ImageContainer:
         FIT = 'fit'
         
         def __eq__(self, value: object) -> bool:
+            return self.value == value
             return super().__eq__(value)
     
         def __str__(self) -> str:
@@ -280,7 +281,19 @@ class ImageContainer:
         self.rotation = angle
         rotated_image = cv2_rotate_image(self.image, self.rotation)
         self.processed_image = cv_resize_to_target_size(rotated_image, self.target_height, self.target_width, self.scale_mode)
-        self.processed_image = cv2_crop_center(self.processed_image, (self.target_height, self.target_width))
+        # self.processed_image = cv2_crop_center(self.processed_image, (self.target_height, self.target_width))
+        
+        if self.scale_mode == ImageContainer.ScaleMode.FIT:
+            background = cv_resize_to_target_size(rotated_image, self.target_height, self.target_width, ImageContainer.ScaleMode.FILL)
+            background = cv2.GaussianBlur(background, (101, 101), 0)
+            background = cv2.multiply(background, 0.5)
+            self.processed_image = cv2_crop_center(self.processed_image, (self.target_height, self.target_width), background=background)
+        else:
+            self.processed_image = cv2_crop_center(self.processed_image, (self.target_height, self.target_width))
+                        
+            # background = cv_resize_to_target_size(rotated_image, self.target_height, self.target_width, ImageContainer.ScaleMode.FILL)
+            # self.processed_image = overlay_center(background, self.processed_image)
+        
         if self.source == ImageContainer.Source.FILE:
             #if it's from file we can clear the image from memory as we can easily reload it
             self.image = None

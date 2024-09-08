@@ -202,7 +202,7 @@ def crop_center(image, size):
     bottom = (height + new_height) // 2
     return image.crop((left, top, right, bottom))
 
-def cv2_crop_center(image, size):
+def cv2_crop_center(image, size, background=None):
     '''
     Crop the image to the specified size by taking a center crop.
     If the crop size is larger than the original image, expand the image to fill the target size with black pixels.
@@ -212,7 +212,10 @@ def cv2_crop_center(image, size):
     
     if new_height > height or new_width > width:
         # Create a new black image with the target size
-        result = np.zeros((new_height, new_width, 3), dtype=np.uint8)
+        if background is not None:
+            result = background #cv2.resize(background, (new_width, new_height), interpolation=cv2.INTER_LANCZOS4)
+        else:
+            result = np.zeros((new_height, new_width, 3), dtype=np.uint8)
         
         # Calculate the coordinates to place the original image in the center
         left = (new_width - width) // 2
@@ -280,6 +283,35 @@ def cv2_rotate_image(image, angle):
     
     return rotated_image
 
+def overlay_image(background, overlay, x, y):
+    '''
+    Overlay the overlay image on top of the background image at the specified position (x, y).
+    '''
+    background_height, background_width = background.shape[:2]
+    overlay_height, overlay_width = overlay.shape[:2]
+    
+    if x + overlay_width > background_width or y + overlay_height > background_height:
+        raise ValueError("Overlay image exceeds the dimensions of the background image.")
+    
+    # Create a copy of the background image to avoid modifying the original image
+    background_copy = background.copy()
+    
+    # Overlay the image on the background at the specified position
+    background_copy[y:y + overlay_height, x:x + overlay_width] = overlay
+    
+    return background_copy
+
+def overlay_center(background, overlay):
+    '''
+    Overlay the overlay image on top of the background image at the center.
+    '''
+    background_height, background_width = background.shape[:2]
+    overlay_height, overlay_width = overlay.shape[:2]
+    
+    x = (background_width - overlay_width) // 2
+    y = (background_height - overlay_height) // 2
+    
+    return overlay_image(background, overlay, x, y)
 
 #function to resize the image to resize to a target size using two options: fill or fit
 #fill: resize the image to fill the target size and crop the excess
@@ -359,7 +391,6 @@ def cv_resize_to_target(src_image, target_image, resize_option):
 
 def cv_resize_to_target_size(src_image, target_height, target_width, resize_option):
     # resize the image to resize to a target size using two options: fill or fit
-    
     image_height, image_width = src_image.shape[:2]
     
     image_aspect = image_width / image_height
