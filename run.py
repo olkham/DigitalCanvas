@@ -10,6 +10,7 @@ from flask import (
     Flask,
     json,
     jsonify,
+    make_response,
     redirect,
     render_template,
     request,
@@ -65,8 +66,9 @@ class API:
     delete = f'/delete'
     select = f'/select'
     current_image_name = f'/current_image_name'
-    current_image = f'/current_image'   #we can also use current_image_name and the /uploads/<filename> endpoint to get the image
+    canvas = f'/canvas'   #we can also use current_image_name and the /uploads/<filename> endpoint to get the image
     
+    configure = f'/configure'
     configure_mqtt = f'/configure/mqtt'
     configure_app = f'/configure/app'
     configure_display = f'/configure/display'
@@ -101,6 +103,7 @@ class CombinedApp:
         self.sensor_reader = SensorReader()
 
         self.on_trigger = False
+        self.previous_slideshow_active_state = False
 
     def setup_flask_routes(self):
         
@@ -163,6 +166,8 @@ class CombinedApp:
             
             #receive an image in base64 format
             if base64_image is not None:
+                if self.slideshow_manager.viewer is None:
+                    return "Viewer is not initialized", 500
                 self.slideshow_manager.viewer.set_image_from_base64(base64_image)
                 return '', 204
             else:
@@ -255,6 +260,16 @@ class CombinedApp:
         def current_image_name():
             current_image_name = self.slideshow_manager.get_current_image_name()
             return current_image_name
+        
+        @self.app.route(API.canvas, methods=['GET'])
+        def canvas():
+            if self.slideshow_manager.viewer is not None:
+                canvas = self.slideshow_manager.viewer.canvas_image
+                #return an opencv/nparry image
+                _, buffer = cv2.imencode('.jpg', canvas)
+                response = make_response(buffer.tobytes())
+                response.headers['Content-Type'] = 'image/jpeg'
+                return response
         
         @self.app.route(API.configure_mqtt, methods=['POST'])
         def configure_mqtt():
@@ -402,6 +417,19 @@ class CombinedApp:
             
             return redirect(url_for('index'))
 
+        @self.app.route(API.configure, methods=['GET', 'POST'])
+        def configure():
+            #reload the configuration from the config file
+            #return the json configuration
+            if request.method == 'GET':
+                self.config_manager.load_config()
+                return jsonify(self.config_manager.config), 200
+            if request.method == 'POST':
+                #check for config parameters in the request and update the config file
+                config = request.json
+                self.config_manager.load_from_json(config)
+                return jsonify(self.config_manager.config), 200
+
         @self.app.route(API.plex_hook, methods=['POST'])
         def plex_hook():
             if self.config_manager['allow_plex']:
@@ -463,36 +491,33 @@ class CombinedApp:
         while True:
             
             if self.config_manager.config['auto_rotation']:
+                # read the sensor data, smooth it and calculate the rotation angle
                 accel = self.sensor_reader.read_bmi160_accel()
                 smooth_accel[smooth_index] = accel
                 smoothed_accel = get_mean_values(smooth_accel)
-                
                 angle = accel_to_rotation(smoothed_accel)
-                # print(f"Current angle: {angle}")
                 if angle != previous_rotation:
+                    #only update the rotation if it has changed
                     self.slideshow_manager.viewer.update_parameters(rotation=angle)
                     previous_rotation = angle
 
-                # media_orientation_filter = accel_to_orientation(smoothed_accel)
-                # print(f"Current orientation: {media_orientation_filter} from accel: {smoothed_accel}")
-                # if media_orientation_filter != previous_media_orientation_filter:
-                    # self.slideshow_manager.viewer.update_parameters(media_orientation_filter=media_orientation_filter)
-                    # previous_media_orientation_filter = media_orientation_filter
 
             if self.config_manager.config['auto_brightness']:
+                # read the sensor data, smooth it and calculate the brightness
                 luminance = self.sensor_reader.read_veml7700_light()
                 smooth_luminance[smooth_index] = luminance
-                smoothed_luminance = get_mean_value(smooth_luminance)
+                smoothed_luminance = int(get_mean_value(smooth_luminance))
                 brightness = int(lerp(smoothed_luminance, self.config_manager['light_sensor_min_reading'], self.config_manager['light_sensor_max_reading'], 0, 100))
-                # brightness = luminance_to_brightness(smoothed_luminance, min_value=self.config_manager['light_sensor_min_reading'], max_value=self.config_manager['light_sensor_max_reading'])
-                # print(f"Current brightness: {brightness} from luminance: {luminance}")
+                
+                #publish the light levels to the MQTT broker, because why not, it's a free feature
+                self.slideshow_manager.publish_light_levels(smoothed_luminance, brightness)
+
                 if brightness != previous_brightness:
                     self.monitor_controller.set_luminance(brightness)
                     previous_brightness = brightness
             
             smooth_index = (smooth_index + 1) % smoothing_window
             
-            # if self.config_manager.config['time_on'] is not None and self.config_manager.config['time_off'] is not None:
             if self.config_manager.config['time_on'] != self.config_manager.config['time_off']:
                     current_time = datetime.datetime.now().time()
                     time_on = datetime.datetime.strptime(self.config_manager.config['time_on'], "%H:%M").time()
@@ -502,12 +527,15 @@ class CombinedApp:
                         if not self.on_trigger:
                             self.on_trigger = True
                             self.monitor_controller.set_power_mode('on')
-                            self.slideshow_manager.viewer.play_slideshow()
+                            if self.previous_slideshow_active_state:
+                                #only resume the slideshow if it was active before the display was turned off
+                                self.slideshow_manager.viewer.play_slideshow()
                             print(f"Turning on the display at {current_time}")
                     else:
                         if self.on_trigger:
                             self.on_trigger = False
                             self.monitor_controller.set_power_mode('off')
+                            self.previous_slideshow_active_state = self.slideshow_manager.viewer.slideshow_active
                             self.slideshow_manager.viewer.pause_slideshow()
                             print(f"Turning off the display at {current_time}")
             

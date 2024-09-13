@@ -129,6 +129,12 @@ class ConfigManager:
         else:
             self.set_defaults()
             return self.load_config()
+        
+    def load_from_json(self, json_str):
+        """Load the configuration from a JSON string."""
+        self.config = json.loads(json_str)
+        self.add_missing_defaults()
+        return self.config
 
     def save_config(self):
         """Save the configuration to JSON file."""

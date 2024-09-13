@@ -96,10 +96,10 @@ class SensorReader:
 
     def read_veml7700_light(self):
         if self.simulation_mode_veml7700:
-            return self.simulated_light
+            return int(self.simulated_light)
         if self.veml7700:
             try:
-                return self.veml7700.lux
+                return int(self.veml7700.lux)
             except Exception as e:
                 print(f"Failed to read from VEML7700 sensor: {e}")
                 return None

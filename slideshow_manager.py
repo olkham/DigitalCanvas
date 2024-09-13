@@ -57,6 +57,8 @@ class SlideshowManager:
         if rc == 0:
             self.mqtt_connected = True
             self.mqtt_client.subscribe(f"{self.config_manager.config['mqtt_topic']}/#")
+            self.publish_available_images()
+            self.publish_current_config()
         else:
             self.mqtt_connected = False
             print("Failed to connect to MQTT broker")
@@ -155,9 +157,17 @@ class SlideshowManager:
         self.publish_mqtt_message(f"{self.config_manager.config['mqtt_topic']}/config", json.dumps(self.config_manager.config))
 
     def publish_available_images(self, *args):
+        if not self.viewer:
+            return
+        if not self.viewer.media_manager:
+            return
         files = self.viewer.media_manager.get_media_files()
         files = [os.path.basename(file.filename) for file in files]
         self.publish_mqtt_message(f"{self.config_manager.config['mqtt_topic']}/available_images", json.dumps(files), retain=True)
+
+    def publish_light_levels(self, light_level=-1, screen_brightness=-1):
+        self.publish_mqtt_message(f"{self.config_manager.config['mqtt_topic']}/light_sensor", light_level)
+        self.publish_mqtt_message(f"{self.config_manager.config['mqtt_topic']}/screen_brightness", screen_brightness)
 
     def close(self):
         if self.viewer:
