@@ -69,7 +69,7 @@ class MediaManager:
 
     def add_media_file(self, file_path) -> None:
         img = ImageContainer()
-        img.from_file(file_path, self.thumbnail_dir, self.thumbnail_width, self.thumbnail_height)
+        img.from_file(file_path, self.thumbnail_dir, self.thumbnail_width, self.thumbnail_height, read_image=True)
         self.all_media_files.append(img)
         if self.media_files_changed_callback is not None:
             self.media_files_changed_callback()

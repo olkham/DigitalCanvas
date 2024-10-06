@@ -7,6 +7,8 @@ from utils import cv2_crop_center, overlay_center, read_image_from_url, cv_resiz
 
 from typing import List, Optional
 from enum import Enum
+import gc
+
 
 class ImageContainer:
     
@@ -60,8 +62,10 @@ class ImageContainer:
         
         #image data
         self._image: np.ndarray = None
+        self._encoded_image = None
         self.thumbnail: np.ndarray = None
         self.processed_image: np.ndarray = None
+        # self._encoded_processed_image = None
         
         #properties
         self.orientation = ImageContainer.Orientation.UNSET
@@ -98,7 +102,6 @@ class ImageContainer:
     @property
     def image(self) -> np.ndarray:
         if self._image is None:
-            print(f'Reloading image from file {self.filename}')
             self.reload_image()
             
         return self._image
@@ -110,15 +113,30 @@ class ImageContainer:
             self.populate_properties()
 
 
+    # @property
+    # def processed_image(self) -> np.ndarray:
+    #     if self._encoded_processed_image is not None:
+    #         self._processed_image = cv2.imdecode(self._encoded_processed_image, cv2.IMREAD_COLOR)
+    #     return self._processed_image
+    
+    # @processed_image.setter
+    # def processed_image(self, image: np.ndarray) -> None:
+    #     if image is None:
+    #         self._processed_image = None
+    #         return
+    #     self._encoded_processed_image = cv2.imencode('.jpg', self.image, [int(cv2.IMWRITE_JPEG_QUALITY), 100])[1]
+      
+
+
     def from_file(self, file_path, thumbnail_dir=None, thumbnail_width=100, thumbnail_height=100, read_image=False):
-        
+        self.source = ImageContainer.Source.FILE
         #strings
         self.file_path: str = file_path
         self.filename = os.path.basename(file_path)
 
         #image data
         if read_image:
-            self._image = cv2.imread(file_path)
+            self.reload_image()
 
         #properties
         self.thumbnail_height = thumbnail_height
@@ -127,11 +145,11 @@ class ImageContainer:
         #default actions
         self.check_for_thumbnail(thumbnail_dir)         #check if thumbnail exists, if not create one
         self.populate_properties()                      #populate the properties of the image
-        self.source = ImageContainer.Source.FILE
+        
         return self
 
     def from_url(self, url, thumbnail_dir=None, thumbnail_width=100, thumbnail_height=100, read_image=False):
-            
+        self.source = ImageContainer.Source.URL
         #strings
         self.file_path: str = url
         self.filename = os.path.basename(url)
@@ -147,10 +165,11 @@ class ImageContainer:
         #default actions
         # self.check_for_thumbnail(thumbnail_dir)       #TODO decide what to do with the thumbnail
         self.populate_properties()                      #populate the properties
-        self.source = ImageContainer.Source.URL
+        
         return self
 
     def from_image(self, image, filename='', thumbnail_dir=None, thumbnail_width=100, thumbnail_height=100):  
+        self.source = ImageContainer.Source.IMAGE
         #strings
         self.file_path: str = '_from_image_'
         self.filename = filename
@@ -163,10 +182,11 @@ class ImageContainer:
         #default actions
         #self.check_for_thumbnail(thumbnail_dir)        #TODO decide what to do with the thumbnail
         self.populate_properties()                      #populate the properties
-        self.source = ImageContainer.Source.IMAGE
+        
         return self
 
     def from_base64(self, base64_string, filename='', thumbnail_width=100, thumbnail_height=100):
+        self.source = ImageContainer.Source.BASE64
         self.file_path: str = '_from_base64_'
         self.filename = filename
         image_data = base64.b64decode(base64_string)
@@ -178,16 +198,25 @@ class ImageContainer:
         #default actions
         #self.check_for_thumbnail(thumbnail_dir)        #TODO decide what to do with the thumbnail
         self.populate_properties()                      #populate the properties
-        self.source = ImageContainer.Source.BASE64
         return self
     
-    def reload_image(self):
+    def reload_image(self):        
+        if self._encoded_image is not None:
+            print(f'Reloading image from memory')
+            self._image = cv2.imdecode(self._encoded_image, cv2.IMREAD_COLOR)
+            return
+        
         if self.source == ImageContainer.Source.FILE:
             if self.exists():
+                print(f'Reloading image from file {self.filename}')
                 self._image = cv2.imread(self.file_path)
         
         if self.source == ImageContainer.Source.URL:
+            print(f'Reloading image from URL {self.file_path}')
             self._image = read_image_from_url(self.file_path)
+
+        self._encoded_image = cv2.imencode('.jpg', self._image, [int(cv2.IMWRITE_JPEG_QUALITY), 100])[1]
+
 
     def check_processing_parameters(self, target_height=None, target_width=None, scale_mode=None, angle=None):
         #if the processing parameters are different from the current processing parameters, then reprocess the image
@@ -318,3 +347,4 @@ class ImageContainer:
         self._image = None
         self.thumbnail = None
         self.processed_image = None
+        gc.collect()
