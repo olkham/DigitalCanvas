@@ -11,3 +11,12 @@ __pycache__/config_manager.cpython-38.pyc
 __pycache__/slideshow_manager.cpython-38.pyc
 config.json
 .vscode/launch.json
+*.jpg
+*.png
+*.bmp
+*.gif
+*.jpeg
+*.tiff
+*.tif
+*.svg
+*.webp

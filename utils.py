@@ -51,14 +51,22 @@ def save_remote_image(image_url, upload_folder, size=None):
         return None
     
 def create_thumbnails_for_existing_images(images, thumbs):
+    # Check if the images and thumbnails directories exist, and create them if they don't
     check_and_create(images)
     check_and_create(thumbs)
     
+    # Create thumbnails for images that don't have a corresponding thumbnail
     for filename in os.listdir(images):
         file_path = os.path.join(images, filename)
         thumbnail_path = os.path.join(thumbs, filename)
         if not os.path.exists(thumbnail_path):
             create_thumbnail(file_path, thumbnail_path)
+
+    # Remove thumbnails for images that no longer exist            
+    for filename in os.listdir(thumbs):
+        if filename not in os.listdir(images):
+            os.remove(os.path.join(thumbs, filename))
+
 
 def check_for_duplicate_files(dir, file):
     # Check if the file already exists in the directory
@@ -614,3 +622,19 @@ def accel_to_rotation(accel):
         return 270
     else:
         return 0
+    
+    
+def generate_unique_filename(directory, extension):
+    filename = str(uuid.uuid4()) + extension
+    while os.path.exists(os.path.join(directory, filename)):
+        filename = str(uuid.uuid4()) + extension
+    return filename
+
+def convert_files_to_unique_filenames(directory, extensions=None):
+    files = list_files(directory, extensions)
+    for file in files:
+        old_filename = os.path.basename(file)
+        if not re.match(r'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$', os.path.splitext(old_filename)[0]):
+            ext = os.path.splitext(file)[1]
+            new_filename = generate_unique_filename(directory, ext)
+            os.rename(os.path.join(directory, file), os.path.join(directory, new_filename))

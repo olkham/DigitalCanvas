@@ -37,7 +37,9 @@ from utils import (
     read_image_from_url,
     replace_webp_extension,
     save_remote_image,
-    strtobool
+    strtobool,
+    generate_unique_filename,
+    convert_files_to_unique_filenames
 )
 
 # from media_manager import MediaManager
@@ -93,6 +95,7 @@ class CombinedApp:
         self.app.config['UPLOAD_FOLDER'] = 'images'
         self.app.config['THUMBNAIL_FOLDER'] = 'thumbnails'
 
+        convert_files_to_unique_filenames(self.app.config['UPLOAD_FOLDER'])
         create_thumbnails_for_existing_images(self.app.config['UPLOAD_FOLDER'], self.app.config['THUMBNAIL_FOLDER'])
         self.setup_flask_routes()
 
@@ -185,7 +188,8 @@ class CombinedApp:
                     files = request.files.getlist('file')
                     for file in files:
                         filename = replace_webp_extension(file.filename)
-                        filename = check_for_duplicate_files(self.app.config['UPLOAD_FOLDER'], filename)
+                        name, ext = os.path.splitext(filename)
+                        filename = generate_unique_filename(self.app.config['UPLOAD_FOLDER'], ext)
                         file_path = os.path.join(self.app.config['UPLOAD_FOLDER'], filename)
                         file.save(file_path)
                         max_usful_size(file_path, max_size=max(self.slideshow_manager.viewer.screen_width, self.slideshow_manager.viewer.screen_height))
@@ -197,6 +201,8 @@ class CombinedApp:
                     image_url = request.form['image_url']
                     filename = save_remote_image(image_url, self.app.config['UPLOAD_FOLDER'])         #duplicate files are checked for in this function
                     filename = replace_webp_extension(filename)
+                    name, ext = os.path.splitext(filename)
+                    filename = generate_unique_filename(self.app.config['UPLOAD_FOLDER'], ext)
                     if filename:
                         file_path = os.path.join(self.app.config['UPLOAD_FOLDER'], filename)
                         max_usful_size(file_path, max_size=max(self.slideshow_manager.viewer.screen_width, self.slideshow_manager.viewer.screen_height))
