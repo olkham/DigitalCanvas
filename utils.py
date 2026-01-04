@@ -448,6 +448,11 @@ def pil_to_cv2(pil_img):
 def list_files(directory, extensions=None, include_paths=False):
     # List all files in the directory with the specified extensions (if provided)
     # if include_paths is True, return the full path of the files
+    
+    # Create directory if it doesn't exist
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    
     if extensions:
         if isinstance(extensions, str):
             extensions = [extensions]

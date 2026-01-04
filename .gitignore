@@ -20,3 +20,4 @@ config.json
 *.tif
 *.svg
 *.webp
+venv/

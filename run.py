@@ -1,6 +1,7 @@
 import base64
 import datetime
 import os
+import signal
 import threading
 import time
 
@@ -551,17 +552,28 @@ class CombinedApp:
         self.app.run(host='0.0.0.0', port=self.config_manager.config['web_interface_port'], debug=False, use_reloader=False)
 
     def run(self):
-        flask_thread = threading.Thread(target=self.run_flask)
-        slideshow_thread = threading.Thread(target=self.slideshow_manager.start_slideshow)
-        sensor_thread = threading.Thread(target=self.monitor_sensor)
+        flask_thread = threading.Thread(target=self.run_flask, daemon=True)
+        slideshow_thread = threading.Thread(target=self.slideshow_manager.start_slideshow, daemon=True)
+        sensor_thread = threading.Thread(target=self.monitor_sensor, daemon=True)
 
         flask_thread.start()
         slideshow_thread.start()
         sensor_thread.start()
 
-        flask_thread.join()
-        slideshow_thread.join()
-        sensor_thread.join()
+        # Handle Ctrl+C gracefully
+        def signal_handler(sig, frame):
+            print("\nShutting down...")
+            exit(0)
+        
+        signal.signal(signal.SIGINT, signal_handler)
+        
+        try:
+            # Keep the main thread alive with a simple loop
+            while True:
+                time.sleep(0.1)
+        except KeyboardInterrupt:
+            print("\nShutting down...")
+            exit(0)
 
     def shutdown(self):
         if is_raspberry_pi():
