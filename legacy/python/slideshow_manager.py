@@ -42,6 +42,7 @@ class SlideshowManager:
             
             self.mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
             self.mqtt_client.on_connect = self.on_mqtt_connect
+            self.mqtt_client.on_disconnect = self.on_mqtt_disconnect
             self.mqtt_client.on_message = self.on_mqtt_message
             self.mqtt_client.connect(self.config_manager.config['mqtt_broker'], int(self.config_manager.config['mqtt_port']), 60)
             self.mqtt_client.loop_start()
@@ -51,6 +52,14 @@ class SlideshowManager:
         except Exception as e:
             print("Failed to connect to MQTT broker:", str(e))
             self.mqtt_connected = False
+
+    def on_mqtt_disconnect(self, client, userdata, disconnect_flags, rc, properties):
+        self.mqtt_connected = False
+        print(f"Disconnected from MQTT broker with result code {rc}")
+        if rc != 0:
+            print("Unexpected disconnection. Attempting to reconnect...")
+            # The paho-mqtt library will automatically try to reconnect
+            # when loop_start() is running and reconnect_delay is set
 
     def on_mqtt_connect(self, client, userdata, flags, rc, properties):
         print("Connected with result code " + str(rc))

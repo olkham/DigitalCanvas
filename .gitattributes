@@ -1,0 +1,8 @@
+# Shell scripts must keep LF endings to run on the Pi, even from a Windows checkout.
+*.sh    text eol=lf
+*.go    text eol=lf
+*.ps1   text eol=crlf
+*.jpg   binary
+*.png   binary
+*.ico   binary
+*.mp4   binary

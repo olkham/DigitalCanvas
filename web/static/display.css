@@ -1,0 +1,116 @@
+/* The display only uses compositor-friendly properties (opacity, transform)
+   so crossfades and rotation run on the GPU, even on a Raspberry Pi. */
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  cursor: none;
+  -webkit-user-select: none;
+  user-select: none;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+body.cursor { cursor: default; }
+
+#stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #000;
+  contain: strict;
+}
+
+.layer {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100vw;
+  height: 100vh;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  will-change: opacity;
+  backface-visibility: hidden;
+  overflow: hidden;
+}
+.layer.r90, .layer.r270 { width: 100vh; height: 100vw; }
+.layer.r90  { transform: translate(-50%, -50%) rotate(90deg); }
+.layer.r180 { transform: translate(-50%, -50%) rotate(180deg); }
+.layer.r270 { transform: translate(-50%, -50%) rotate(270deg); }
+
+.layer > .bg,
+.layer > .fg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.layer > .bg { object-fit: cover; }
+.layer > .fg { object-fit: contain; }
+.layer.fill > .fg { object-fit: cover; }
+.layer.fill > .bg { display: none; }
+
+/* Idle screen (empty library) */
+.layer.idle > .bg { object-fit: cover; }
+.idle-veil {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 60%, rgba(5, 5, 15, .35), rgba(5, 5, 15, .8));
+}
+.idle-card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(78%, 46rem);
+  padding: clamp(1.5rem, 4vmin, 3rem);
+  border-radius: clamp(1rem, 3vmin, 2rem);
+  background: rgba(12, 12, 24, .62);
+  border: 1px solid rgba(255, 255, 255, .12);
+  color: #f4f4f8;
+  text-align: center;
+  box-shadow: 0 2rem 6rem rgba(0, 0, 0, .5);
+}
+.idle-name { font-size: clamp(1.4rem, 5vmin, 3.4rem); font-weight: 650; letter-spacing: -.02em; }
+.idle-hint { margin-top: .6em; font-size: clamp(.9rem, 2.4vmin, 1.5rem); color: rgba(244, 244, 248, .72); }
+.idle-url {
+  display: inline-block;
+  margin-top: 1.1em;
+  padding: .5em 1em;
+  border-radius: 999px;
+  background: rgba(167, 139, 250, .18);
+  color: #d9ccff;
+  font-size: clamp(1rem, 2.8vmin, 1.8rem);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.idle-url + .idle-url { margin-left: .5em; }
+
+#blackout {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1.2s ease;
+}
+body.off #blackout { opacity: 1; }
+
+#osd {
+  position: fixed;
+  left: 50%;
+  bottom: 6vh;
+  transform: translate(-50%, 1rem);
+  padding: .7rem 1.4rem;
+  border-radius: 999px;
+  background: rgba(10, 10, 20, .72);
+  border: 1px solid rgba(255, 255, 255, .14);
+  color: #fff;
+  font-size: clamp(1rem, 2.2vmin, 1.5rem);
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity .25s ease, transform .25s ease;
+  pointer-events: none;
+  white-space: nowrap;
+}
+#osd.show { opacity: 1; transform: translate(-50%, 0); }

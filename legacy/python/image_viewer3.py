@@ -32,7 +32,8 @@ from PIL import ImageTk
 from config_manager import ConfigManager
 from media_manager import MediaManager
 from image_container import ImageContainer
-from utils import cv2_to_pil
+from constants import DisplayMode, ScaleMode
+from utils import cv2_to_pil, is_video_file, cv_resize_to_target_size, cv2_rotate_image, cv2_crop_center
 import cv2
 import numpy as np
 
@@ -52,6 +53,13 @@ class ImageViewer:
         self._slideshow_active = True
         self._frame_interval = 0
         self._transition_duration = 0
+        
+        # Video playback state
+        self._video_capture = None
+        self._video_playing = False
+        self._video_job_id = None
+        self._video_background = None  # Pre-computed blurred background for video
+        self._video_needs_background = False  # Whether we need background (fit mode)
         self._next_image_job_id = None
         self._transition_job_id = None
         self._media_orientation_filter = None
@@ -90,7 +98,7 @@ class ImageViewer:
         self.screen_width = self.root.winfo_screenwidth()
         self.screen_height = self.root.winfo_screenheight()
         
-        if self.display_mode == "fullscreen":
+        if self.display_mode == DisplayMode.FULLSCREEN.value:
             self.root.attributes('-fullscreen', True)
         else:
             self.root.geometry(f"{self.screen_width}x{self.screen_height}")
@@ -121,10 +129,10 @@ class ImageViewer:
         if ConfigManager.is_valid_value('display_mode', mode):
             if self._display_mode != mode:
                 self._display_mode = mode
-                if self.display_mode == "fullscreen":
+                if self.display_mode == DisplayMode.FULLSCREEN.value:
                     self.root.attributes('-fullscreen', True)
                     self.root.config(cursor="none")
-                elif self.display_mode == "windowed":
+                elif self.display_mode == DisplayMode.WINDOWED.value:
                     self.root.attributes('-fullscreen', False)
                     self.root.geometry("800x600")
                     self.root.config(cursor="arrow")
@@ -227,16 +235,16 @@ class ImageViewer:
     
     
     def toggle_fullscreen(self, event=None):
-        if self.display_mode == "fullscreen":
-            self.display_mode = "windowed"
+        if self.display_mode == DisplayMode.FULLSCREEN.value:
+            self.display_mode = DisplayMode.WINDOWED.value
         else:    
-            self.display_mode = "fullscreen"
+            self.display_mode = DisplayMode.FULLSCREEN.value
             
     def toggle_scale_mode(self, event=None):
-        if self.scale_mode == "fit":
-            self.scale_mode = "fill"
+        if self.scale_mode == ScaleMode.FIT.value:
+            self.scale_mode = ScaleMode.FILL.value
         else:
-            self.scale_mode = "fit"
+            self.scale_mode = ScaleMode.FIT.value
     
     def rotate_image(self, event=None):
         self.rotation = (self.rotation + 90) % 360
@@ -365,14 +373,17 @@ class ImageViewer:
         self.update_canvas()
         
         if progress < 1.0:
-            self.transition_job_id = self.root.after(10, self._fade_step)  # Approximately 30 FPS
+            self.transition_job_id = self.root.after(16, self._fade_step)  # 60 FPS (16ms per frame)
         else:
             self.fade_in_progress = False
-            if self.slideshow_active:
+            # Check if current media is a video and start playback
+            if self.current_image is not None and self.current_image.is_video:
+                self._start_video(self.current_image)
+            elif self.slideshow_active:
                 self.next_image_job_id = self.root.after(int(self.frame_interval * 1000), self.show_next_image)
-                # self.current_image = self.target_image
         
     def quit_app(self, event=None):
+        self._stop_video()
         self.root.quit()
     
     def run(self):
@@ -395,6 +406,9 @@ class ImageViewer:
         self.next_image_job_id = self.root.after(int(self.frame_interval * 1000), self.show_next_image)
     
     def show_next_image(self, event=None):
+        # Stop any current video playback
+        self._stop_video()
+        
         self.next_image = self.media_manager.get_next_media()
         if self.next_image is None:
             return
@@ -403,10 +417,11 @@ class ImageViewer:
         self.fade_to_image(self.next_image, self.transition_duration)
         
         self.current_image = self.next_image
-        if self.slideshow_active:
-            self.next_image_job_id = self.root.after(int(self.frame_interval * 1000), self.show_next_image)
 
     def show_previous_image(self, event=None):
+        # Stop any current video playback
+        self._stop_video()
+        
         self.next_image = self.media_manager.get_prev_media()
         if self.next_image is None:
             return
@@ -415,11 +430,92 @@ class ImageViewer:
         self.fade_to_image(self.next_image, self.transition_duration)
         
         self.current_image = self.next_image
-        if self.slideshow_active:
-            self.next_image_job_id = self.root.after(int(self.frame_interval * 1000), self.show_next_image)
         
     def quit_slideshow(self):
-        pass
+        self._stop_video()
+    
+    # Video playback methods
+    def _start_video(self, media: ImageContainer):
+        """Start playing a video file."""
+        self._stop_video()  # Stop any existing video
+        
+        self._video_capture = cv2.VideoCapture(media.file_path)
+        if not self._video_capture.isOpened():
+            print(f"Failed to open video: {media.file_path}")
+            return False
+        
+        self._video_playing = True
+        self._video_needs_background = (self.scale_mode == ScaleMode.FIT.value or self.scale_mode == 'fit')
+        self._video_background = None  # Will be computed from first frame if needed
+        
+        fps = media.video_fps if media.video_fps > 0 else 30.0
+        frame_delay = int(1000 / fps)  # milliseconds per frame
+        
+        self._play_video_frame(frame_delay)
+        return True
+    
+    def _play_video_frame(self, frame_delay: int):
+        """Play the next frame of the video."""
+        if not self._video_playing or self._video_capture is None:
+            return
+        
+        ret, frame = self._video_capture.read()
+        if ret:
+            # Process the frame
+            self.canvas_image = self._process_video_frame(frame)
+            self.update_canvas()
+            
+            # Schedule next frame
+            self._video_job_id = self.root.after(frame_delay, lambda: self._play_video_frame(frame_delay))
+        else:
+            # Video ended - loop or move to next
+            self._video_capture.set(cv2.CAP_PROP_POS_FRAMES, 0)  # Loop the video
+            self._video_background = None  # Reset background for loop
+            if self.slideshow_active:
+                # Move to next media after video completes one loop
+                self._stop_video()
+                self.next_image_job_id = self.root.after(100, self.show_next_image)
+            else:
+                # If slideshow paused, loop the video
+                self._play_video_frame(frame_delay)
+    
+    def _process_video_frame(self, frame: np.ndarray) -> np.ndarray:
+        """Process a video frame optimized for performance."""
+        # Rotate first if needed
+        if self.rotation != 0:
+            frame = cv2_rotate_image(frame, self.rotation)
+        
+        # Resize the frame based on scale mode
+        processed = cv_resize_to_target_size(frame, self.screen_height, self.screen_width, self.scale_mode)
+        
+        if self._video_needs_background:
+            # Create blurred background only once from first frame
+            if self._video_background is None:
+                # Use faster blur: downsample -> small blur -> upsample
+                small = cv2.resize(frame, (self.screen_width // 8, self.screen_height // 8), interpolation=cv2.INTER_LINEAR)
+                blurred_small = cv2.GaussianBlur(small, (15, 15), 0)
+                background = cv2.resize(blurred_small, (self.screen_width, self.screen_height), interpolation=cv2.INTER_LINEAR)
+                self._video_background = (background * 0.5).astype(np.uint8)
+            
+            processed = cv2_crop_center(processed, (self.screen_height, self.screen_width), background=self._video_background)
+        else:
+            # Fill mode - just crop to exact target size
+            processed = cv2_crop_center(processed, (self.screen_height, self.screen_width))
+        
+        return processed
+    
+    def _stop_video(self):
+        """Stop video playback and release resources."""
+        self._video_playing = False
+        self._video_background = None
+        
+        if self._video_job_id is not None:
+            self.root.after_cancel(self._video_job_id)
+            self._video_job_id = None
+        
+        if self._video_capture is not None:
+            self._video_capture.release()
+            self._video_capture = None
     
     
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 from monitorcontrol import get_monitors, PowerMode
+from constants import PowerMode as AppPowerMode
 
 class MonitorController:
 
@@ -15,8 +16,8 @@ class MonitorController:
 
     def set_power_mode(self, mode):
         
-        if mode == 'off':
-            mode = 'off_soft'
+        if mode == AppPowerMode.OFF or mode == AppPowerMode.OFF.value:
+            mode = AppPowerMode.OFF_SOFT.value
         
         if self.monitors_connected == False:
             return False

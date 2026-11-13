@@ -2,18 +2,30 @@ import json
 import os
 import ipaddress
 from utils import get_short_system_uuid
+from constants import (
+    VALID_ORIENTATIONS,
+    VALID_SCALE_MODES,
+    VALID_DISPLAY_MODES,
+    VALID_PLAYBACK_MODES,
+    VALID_ROTATIONS,
+    VALID_THEMES,
+    Orientation,
+    ScaleMode,
+    DisplayMode,
+    PlaybackMode,
+)
 import re
 
 
 # Valid values for the configuration parameters
-valid_media_orientation_filters = ['portrait', 'landscape', 'both']
-valid_display_modes = ['windowed', 'fullscreen']
-valid_themes = ['light-theme', 'dark-theme', 'darcula-theme', 'spring-blossom-theme', 'winter-wonderland-theme', 'autumn-leaves-theme', 'autumn-leaves-theme', 'ocean-breeze-theme', 'warm-sunset-theme']
-valid_scale_modes = ['fill', 'fit']
-valid_playback_mode = ['sequential', 'random']
+valid_media_orientation_filters = VALID_ORIENTATIONS
+valid_display_modes = VALID_DISPLAY_MODES
+valid_themes = VALID_THEMES
+valid_scale_modes = VALID_SCALE_MODES
+valid_playback_mode = VALID_PLAYBACK_MODES
 valid_auto_brightness = [True, False]
 valid_auto_rotation = [True, False]
-valid_rotation = [0, 90, 180, 270]
+valid_rotation = VALID_ROTATIONS
 valid_allow_plex = [True, False]
 valid_pause_when_plex_playing = [True, False]
 

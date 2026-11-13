@@ -1,4 +1,5 @@
 import os
+from functools import lru_cache
 from PIL import Image
 import cv2
 import numpy as np
@@ -10,7 +11,6 @@ import hashlib
 import base64
 import re
 import uuid
-import os
 import ctypes
 
 
@@ -79,6 +79,7 @@ def check_for_duplicate_files(dir, file):
         file = f"{base}_{i}{ext}"
     return file
     
+@lru_cache(maxsize=1)
 def is_raspberry_pi():
     try:
         with open('/proc/device-tree/model') as model_file:
@@ -87,6 +88,7 @@ def is_raspberry_pi():
     except FileNotFoundError:
         return False
             
+@lru_cache(maxsize=1)
 def get_system_uuid():
     try:
         if platform.system() == "Windows":
@@ -107,6 +109,7 @@ def get_system_uuid():
         _uuid = uuid.uuid4()
     return _uuid
 
+@lru_cache(maxsize=1)
 def get_short_system_uuid():
     try:
         uuid = get_system_uuid()  # Assuming get_system_uuid() is defined elsewhere and returns the system's UUID as a string
@@ -456,9 +459,10 @@ def list_files(directory, extensions=None, include_paths=False):
     if extensions:
         if isinstance(extensions, str):
             extensions = [extensions]
-        files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f)) and f.lower().endswith(tuple(extensions))]
+        extensions = tuple(ext.lower() for ext in extensions)
+        files = [f.name for f in os.scandir(directory) if f.is_file() and f.name.lower().endswith(extensions)]
     else:
-        files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
+        files = [f.name for f in os.scandir(directory) if f.is_file()]
         
     if include_paths:
         files = [os.path.join(directory, f) for f in files]
@@ -552,6 +556,7 @@ def lerp(value, min_val, max_val, new_min, new_max, clamp_output=True):
         
     return new_value
 
+@lru_cache(maxsize=1)
 def check_os():
     if platform.system() == "Windows":
         return "Windows"

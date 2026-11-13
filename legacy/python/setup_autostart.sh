@@ -1,10 +1,8 @@
 #!/bin/bash
-
 # Set variables
 SERVICE_NAME="digital_canvas"
-USER_NAME=$(whoami)
-VENV_PATH="/home/$USER_NAME/canvas/bin/activate"
-SCRIPT_PATH="/home/$USER_NAME/Projects/DigitalCanvas/run.py"
+VENV_PATH="/home/pi/canvas/bin/activate"
+SCRIPT_PATH="/home/pi/Projects/DigitalCanvas/run.py"
 SERVICE_FILE="/etc/systemd/system/$SERVICE_NAME.service"
 
 # Create the service file
@@ -12,15 +10,22 @@ sudo tee $SERVICE_FILE > /dev/null << EOL
 [Unit]
 Description=Digital Canvas Python App
 After=network.target
+After=graphical.target
+Wants=graphical.target
 
 [Service]
 Environment="DISPLAY=:0"
-ExecStart=/bin/bash -c 'source $VENV_PATH && python $SCRIPT_PATH'
-User=$USER_NAME
-WorkingDirectory=/home/$USER_NAME/Projects/DigitalCanvas
+Environment="XAUTHORITY=/home/pi/.Xauthority"
+ExecStartPre=/bin/bash -c 'until [ -S /tmp/.X11-unix/X0 ]; do sleep 1; done'
+ExecStart=/bin/bash -c 'export DISPLAY=:0; source $VENV_PATH && python $SCRIPT_PATH'
+Restart=always
+RestartSec=5
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/Projects/DigitalCanvas
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=graphical.target
 EOL
 
 # Set correct permissions for the service file
@@ -40,3 +45,4 @@ sudo systemctl status $SERVICE_NAME.service
 
 echo "Setup complete. Your Python app should now start automatically on boot."
 echo "You can check the status of your service with: sudo systemctl status $SERVICE_NAME.service"
+echo "Service logs can be viewed with: sudo journalctl -u $SERVICE_NAME.service -f"

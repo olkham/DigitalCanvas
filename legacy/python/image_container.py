@@ -1,24 +1,71 @@
 import base64
+import hashlib
 import os
 # import random
 import cv2
 import numpy as np
-from utils import cv2_crop_center, overlay_center, read_image_from_url, cv_resize_to_target_size, cv2_rotate_image, read_image_properties
+from utils import cv2_crop_center, overlay_center, read_image_from_url, cv_resize_to_target_size, cv2_rotate_image, read_image_properties, is_video_file
+from constants import Orientation as ConstOrientation, ScaleMode as ConstScaleMode
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Tuple
 from enum import Enum
 import gc
+
+# Global LRU cache for processed images (shared across all ImageContainers)
+_processed_image_cache: Dict[str, np.ndarray] = {}
+_cache_max_size = 10  # Maximum number of cached processed images
+_cache_order: list = []  # Track access order for LRU eviction
+
+
+def _get_cache_key(file_path: str, target_height: int, target_width: int, scale_mode: str, rotation: int) -> str:
+    """Generate a hash-based cache key for processed image parameters."""
+    key_str = f"{file_path}|{target_height}|{target_width}|{scale_mode}|{rotation}"
+    return hashlib.md5(key_str.encode()).hexdigest()
+
+
+def _cache_get(key: str) -> Optional[np.ndarray]:
+    """Get item from cache and update access order."""
+    if key in _processed_image_cache:
+        # Move to end (most recently used)
+        if key in _cache_order:
+            _cache_order.remove(key)
+        _cache_order.append(key)
+        return _processed_image_cache[key]
+    return None
+
+
+def _cache_put(key: str, image: np.ndarray) -> None:
+    """Put item in cache with LRU eviction."""
+    global _processed_image_cache, _cache_order
+    
+    # Evict oldest if at capacity
+    while len(_cache_order) >= _cache_max_size:
+        oldest_key = _cache_order.pop(0)
+        if oldest_key in _processed_image_cache:
+            del _processed_image_cache[oldest_key]
+    
+    _processed_image_cache[key] = image
+    _cache_order.append(key)
 
 
 class ImageContainer:
     
     DEFAULT_THUMBNAIL_DIR = 'thumbnails'
     
+    __slots__ = (
+        'file_path', 'thumbnail_path', 'filename', 'source',
+        '_image', '_encoded_image', 'thumbnail', 'processed_image',
+        'orientation', 'is_portrait', 'target_height', 'target_width',
+        'scale_mode', 'rotation', 'thumbnail_height', 'thumbnail_width',
+        'has_thumbnail', 'height', 'width', 'is_video', 'video_fps', 'video_frame_count'
+    )
+    
+    # Keep nested classes for backward compatibility but they now reference the shared enums
     class Orientation(Enum):
         UNSET = 'square'
-        PORTRAIT = 'portrait'
-        LANDSCAPE = 'landscape'
-        BOTH = 'both'
+        PORTRAIT = ConstOrientation.PORTRAIT.value
+        LANDSCAPE = ConstOrientation.LANDSCAPE.value
+        BOTH = ConstOrientation.BOTH.value
         
         def __eq__(self, value: object) -> bool:
             return self.value == value
@@ -28,12 +75,11 @@ class ImageContainer:
         
     class ScaleMode(Enum):
         UNSET = 'unset'
-        FILL = 'fill'
-        FIT = 'fit'
+        FILL = ConstScaleMode.FILL.value
+        FIT = ConstScaleMode.FIT.value
         
         def __eq__(self, value: object) -> bool:
             return self.value == value
-            return super().__eq__(value)
     
         def __str__(self) -> str:
             return self.value
@@ -74,6 +120,11 @@ class ImageContainer:
         self.target_width: int = 0
         self.scale_mode = ImageContainer.ScaleMode.UNSET
         self.rotation = 0
+        
+        # Video properties
+        self.is_video: bool = False
+        self.video_fps: float = 30.0
+        self.video_frame_count: int = 0
 
     def __str__(self) -> str:
         #used for printing the object
@@ -133,6 +184,9 @@ class ImageContainer:
         #strings
         self.file_path: str = file_path
         self.filename = os.path.basename(file_path)
+        
+        # Check if this is a video file
+        self.is_video = is_video_file(file_path)
 
         #image data
         if read_image:
@@ -209,13 +263,46 @@ class ImageContainer:
         if self.source == ImageContainer.Source.FILE:
             if self.exists():
                 print(f'Reloading image from file {self.filename}')
-                self._image = cv2.imread(self.file_path)
+                if is_video_file(self.file_path):
+                    # Extract a frame from video
+                    self._image = self._extract_video_frame(self.file_path)
+                else:
+                    self._image = cv2.imread(self.file_path)
         
         if self.source == ImageContainer.Source.URL:
             print(f'Reloading image from URL {self.file_path}')
             self._image = read_image_from_url(self.file_path)
 
-        self._encoded_image = cv2.imencode('.jpg', self._image, [int(cv2.IMWRITE_JPEG_QUALITY), 100])[1]
+        if self._image is not None:
+            self._encoded_image = cv2.imencode('.jpg', self._image, [int(cv2.IMWRITE_JPEG_QUALITY), 100])[1]
+
+    def _extract_video_frame(self, video_path, frame_position=0.1):
+        """Extract a frame from a video file.
+        
+        Args:
+            video_path: Path to the video file
+            frame_position: Position to extract frame (0.0-1.0, default 10% into video)
+        
+        Returns:
+            numpy array of the frame, or None if failed
+        """
+        cap = cv2.VideoCapture(video_path)
+        try:
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            if total_frames > 0:
+                target_frame = int(total_frames * frame_position)
+                cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
+            
+            ret, frame = cap.read()
+            if ret:
+                return frame
+            
+            # Fallback to first frame
+            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            ret, frame = cap.read()
+            return frame if ret else None
+        finally:
+            cap.release()
 
 
     def check_processing_parameters(self, target_height=None, target_width=None, scale_mode=None, angle=None):
@@ -233,15 +320,31 @@ class ImageContainer:
             scale_mode = scale_mode.value
         
         if self.target_height != target_height or self.target_width != target_width or self.scale_mode != scale_mode or self.rotation != angle:
-            print('Reprocessing image')
-            if int(abs(self.rotation - angle)) == 180:
+            # Check cache first
+            cache_key = _get_cache_key(self.file_path, target_height, target_width, scale_mode, angle)
+            cached = _cache_get(cache_key)
+            if cached is not None:
+                self.processed_image = cached
+                self.target_height = target_height
+                self.target_width = target_width
+                self.scale_mode = scale_mode
+                self.rotation = angle
+            elif int(abs(self.rotation - angle)) == 180:
                 self.processed_image = cv2_rotate_image(self.processed_image, 180)
                 self.rotation = angle
+                _cache_put(cache_key, self.processed_image)
             else:
                 self.process_image(target_height, target_width, scale_mode, angle)
+                _cache_put(cache_key, self.processed_image)
         else:
             if self.processed_image is None:
-                self.process_image(self.target_height, self.target_width, self.scale_mode, self.rotation)
+                cache_key = _get_cache_key(self.file_path, self.target_height, self.target_width, self.scale_mode, self.rotation)
+                cached = _cache_get(cache_key)
+                if cached is not None:
+                    self.processed_image = cached
+                else:
+                    self.process_image(self.target_height, self.target_width, self.scale_mode, self.rotation)
+                    _cache_put(cache_key, self.processed_image)
         
     def check_for_thumbnail(self, thumbnail_dir):
         #check if thumbnail dir exists, if not create one
@@ -250,7 +353,13 @@ class ImageContainer:
             thumbnail_dir = self.DEFAULT_THUMBNAIL_DIR
         
         #check if thumbnail exists, if not create one
-        self.thumbnail_path = os.path.join(thumbnail_dir, self.filename)
+        # For videos, use .jpg extension for thumbnails
+        if is_video_file(self.file_path):
+            thumb_filename = os.path.splitext(self.filename)[0] + '.jpg'
+            self.thumbnail_path = os.path.join(thumbnail_dir, thumb_filename)
+        else:
+            self.thumbnail_path = os.path.join(thumbnail_dir, self.filename)
+        
         if os.path.exists(self.thumbnail_path):
             self.has_thumbnail = True
             # self.check_thumnail_size(self.thumbnail_width, self.thumbnail_height)
@@ -268,15 +377,34 @@ class ImageContainer:
     def create_thumbnail(self, width, height):
         if self.has_thumbnail:
             return
-        self.thumbnail = cv_resize_to_target_size(self._image, width, height, resize_option=ImageContainer.ScaleMode.FIT.value)
-        cv2.imwrite(self.thumbnail_path, self.thumbnail)
+        
+        # For videos or when image isn't loaded, use the utils function
+        if is_video_file(self.file_path) or self._image is None:
+            from utils import create_thumbnail as utils_create_thumbnail
+            # Change extension to .jpg for video thumbnails
+            thumb_path = self.thumbnail_path
+            if is_video_file(self.file_path):
+                thumb_path = os.path.splitext(self.thumbnail_path)[0] + '.jpg'
+                self.thumbnail_path = thumb_path
+            utils_create_thumbnail(self.file_path, thumb_path, (width, height))
+            self.thumbnail = cv2.imread(thumb_path)
+        else:
+            self.thumbnail = cv_resize_to_target_size(self._image, width, height, resize_option=ImageContainer.ScaleMode.FIT.value)
+            cv2.imwrite(self.thumbnail_path, self.thumbnail)
+        
         self.has_thumbnail = True
 
     def populate_properties(self):
         if self._image is None:
             #read the properties from the file without loading the image
-            size = read_image_properties(self.file_path)['size']
+            props = read_image_properties(self.file_path)
+            size = props['size']
             self.width, self.height = size
+            
+            # Get video-specific properties
+            if self.is_video and 'info' in props:
+                self.video_fps = props['info'].get('fps', 30.0)
+                self.video_frame_count = props['info'].get('frame_count', 0)
         else:
             self.height, self.width = self._image.shape[:2]
             

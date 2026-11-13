@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en" data-theme="dark-theme">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0d12">
+<meta name="color-scheme" content="dark light">
+<title>Digital Canvas</title>
+<link rel="icon" href="/favicon.ico">
+<link rel="stylesheet" href="/assets/app.css?v={{V}}">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4.5" width="4" height="15" rx="1.2" fill="currentColor" stroke="none"/><rect x="14" y="4.5" width="4" height="15" rx="1.2" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path d="M5 5.5v13a1 1 0 0 0 1.6.8l8.7-6.5a1 1 0 0 0 0-1.6L6.6 4.7A1 1 0 0 0 5 5.5z" fill="currentColor" stroke="none"/><rect x="17" y="5" width="2.6" height="14" rx="1.3" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-prev" viewBox="0 0 24 24"><path d="M19 5.5v13a1 1 0 0 1-1.6.8l-8.7-6.5a1 1 0 0 1 0-1.6l8.7-6.5A1 1 0 0 1 19 5.5z" fill="currentColor" stroke="none"/><rect x="4.4" y="5" width="2.6" height="14" rx="1.3" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4.5A1.5 1.5 0 0 1 9.5 3h5A1.5 1.5 0 0 1 16 4.5V6m2.5 0-.8 13.1A2 2 0 0 1 15.7 21H8.3a2 2 0 0 1-2-1.9L5.5 6M10 11v5M14 11v5"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/></symbol>
+    <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M21 4v5h-5"/><path d="M20.2 13.5A8.5 8.5 0 1 1 18.4 6.6L21 9"/></symbol>
+    <symbol id="i-shuffle" viewBox="0 0 24 24"><path d="M16 4h4v4M4 20 20 4M20 16v4h-4M15 15l5 5M4 4l5 5"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"/></symbol>
+    <symbol id="i-power" viewBox="0 0 24 24"><path d="M18.4 6.6a9 9 0 1 1-12.8 0M12 2v10"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2.5" y="3.5" width="19" height="13" rx="2"/><path d="M8 20.5h8M12 16.5v4"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2.5"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="m21 15-5-5L5 21"/></symbol>
+    <symbol id="i-film" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="16" rx="2.5"/><path d="M7 4v16M17 4v16M2.5 9H7M2.5 15H7M17 9h4.5M17 15h4.5"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7.1-7.1l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v3.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 18.5V15M17 8l-5-5-5 5M12 3v12"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></symbol>
+    <symbol id="i-portrait" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2"/></symbol>
+    <symbol id="i-landscape" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5z"/><path d="m3 13 9 5 9-5"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.7-.8 1.7-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7H16a5 5 0 0 0 5-5C21 6.4 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.1"/><circle cx="10.5" cy="7.5" r="1.1"/><circle cx="15" cy="7.5" r="1.1"/></symbol>
+    <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 2v5M15 2v5M6 7h12v4a6 6 0 0 1-12 0zM12 17v5"/></symbol>
+    <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="19" r="1.4" fill="currentColor"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 4v5h-5M3 20v-5h5"/><path d="M5.1 9A8 8 0 0 1 19 7.6L21 9M3 15l2 1.4A8 8 0 0 0 18.9 15"/></symbol>
+    <symbol id="i-mark" viewBox="0 0 32 32"><rect x="3" y="5" width="26" height="22" rx="5" fill="currentColor" opacity=".18" stroke="none"/><path d="M3.5 22.5 11 15l5 5 4-4 8.5 8.5" stroke-width="2.4"/><circle cx="21.5" cy="11" r="2.6" fill="currentColor" stroke="none"/><rect x="3" y="5" width="26" height="22" rx="5" stroke-width="2.2"/></symbol>
+  </defs>
+</svg>
+
+<div id="ambient" aria-hidden="true"><img alt=""><img alt=""></div>
+
+<div class="offline" id="offline" hidden>Reconnecting to your canvas…</div>
+
+<header class="topbar">
+  <div class="brand">
+    <svg class="logo" aria-hidden="true"><use href="#i-mark"/></svg>
+    <div class="brand-text">
+      <button class="device-name" id="deviceName" title="Rename this canvas">
+        <span id="deviceNameText">Digital Canvas</span>
+        <svg class="ico sm"><use href="#i-edit"/></svg>
+      </button>
+      <input class="device-input" id="deviceNameInput" hidden maxlength="64" aria-label="Device name" spellcheck="false" autocomplete="off">
+      <span class="brand-sub">Digital Canvas</span>
+    </div>
+  </div>
+  <div class="pills" aria-label="Status">
+    <span class="pill" id="pillDisplay"><i class="dot"></i><span>Display</span></span>
+    <span class="pill" id="pillMqtt"><i class="dot"></i><span>MQTT</span></span>
+    <span class="pill" id="pillScreen"><i class="dot"></i><span>Screen</span></span>
+  </div>
+  <div class="top-actions">
+    <button class="btn primary" id="addBtn"><svg class="ico"><use href="#i-plus"/></svg><span>Add media</span></button>
+    <button class="icon-btn" id="settingsBtn" aria-label="Settings" aria-haspopup="dialog" aria-controls="drawer"><svg class="ico"><use href="#i-settings"/></svg></button>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="now card" aria-labelledby="nowTitle">
+    <div class="preview-wrap">
+      <div class="preview" id="preview" role="img" aria-label="What the canvas is showing"></div>
+    </div>
+    <div class="now-info">
+      <div class="eyebrow" id="nowEyebrow">Now showing</div>
+      <h1 class="now-title" id="nowTitle">Connecting…</h1>
+      <div class="meta" id="nowMeta"></div>
+      <div class="transport">
+        <button class="icon-btn lg" data-cmd="previous" aria-label="Previous"><svg class="ico"><use href="#i-prev"/></svg></button>
+        <button class="play-btn" id="playBtn" aria-label="Pause"><svg class="ico"><use href="#i-pause"/></svg></button>
+        <button class="icon-btn lg" data-cmd="next" aria-label="Next"><svg class="ico"><use href="#i-next"/></svg></button>
+      </div>
+      <div class="progress" aria-hidden="true"><div class="bar" id="progressBar"></div></div>
+      <div class="progress-label"><span id="progressLeft">&nbsp;</span><span id="progressRight"></span></div>
+      <div class="quick">
+        <div class="seg sm" data-setting="scale_mode" role="group" aria-label="Scaling">
+          <button data-value="fit">Fit</button><button data-value="fill">Fill</button>
+        </div>
+        <div class="seg sm" data-setting="playback_mode" role="group" aria-label="Order">
+          <button data-value="sequential">In order</button><button data-value="random"><svg class="ico xs"><use href="#i-shuffle"/></svg>Shuffle</button>
+        </div>
+        <button class="chip" id="rotateBtn" title="Rotate 90°"><svg class="ico xs"><use href="#i-rotate"/></svg><span id="rotLabel">0°</span></button>
+      </div>
+    </div>
+  </section>
+
+  <section class="library" aria-labelledby="libTitle">
+    <div class="lib-head">
+      <div class="lib-title">
+        <h2 id="libTitle">Library</h2>
+        <span class="count" id="libCount"></span>
+      </div>
+      <div class="lib-tools">
+        <div class="seg sm" data-setting="media_orientation_filter" role="group" aria-label="Which media the slideshow plays">
+          <button data-value="both">All</button>
+          <button data-value="landscape"><svg class="ico xs"><use href="#i-landscape"/></svg>Landscape</button>
+          <button data-value="portrait"><svg class="ico xs"><use href="#i-portrait"/></svg>Portrait</button>
+        </div>
+        <button class="btn ghost sm" id="selectBtn">Select</button>
+      </div>
+    </div>
+    <div class="selection-bar" id="selectionBar" hidden>
+      <span id="selCount">0 selected</span>
+      <div class="sel-actions">
+        <button class="btn ghost sm" id="selAll">Select all</button>
+        <button class="btn danger sm" id="selDelete"><svg class="ico xs"><use href="#i-trash"/></svg>Delete</button>
+        <button class="btn ghost sm" id="selDone">Done</button>
+      </div>
+    </div>
+    <div class="grid" id="grid" role="list"></div>
+    <div class="empty" id="empty" hidden>
+      <div class="empty-art"><svg class="ico"><use href="#i-upload"/></svg></div>
+      <h3>Your canvas is empty</h3>
+      <p>Add photos and videos. Drop them anywhere on this page, paste them, or pick files.</p>
+      <button class="btn primary" data-open-add><svg class="ico"><use href="#i-plus"/></svg>Add media</button>
+    </div>
+  </section>
+</main>
+
+<nav class="dock" aria-label="Playback">
+  <button class="icon-btn" data-cmd="previous" aria-label="Previous"><svg class="ico"><use href="#i-prev"/></svg></button>
+  <button class="play-btn sm" id="dockPlay" aria-label="Pause"><svg class="ico"><use href="#i-pause"/></svg></button>
+  <button class="icon-btn" data-cmd="next" aria-label="Next"><svg class="ico"><use href="#i-next"/></svg></button>
+  <span class="dock-sep"></span>
+  <button class="icon-btn accent" data-open-add aria-label="Add media"><svg class="ico"><use href="#i-plus"/></svg></button>
+</nav>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" aria-hidden="true">
+  <div class="drawer-head">
+    <h2 id="drawerTitle">Settings</h2>
+    <button class="icon-btn" id="drawerClose" aria-label="Close settings"><svg class="ico"><use href="#i-x"/></svg></button>
+  </div>
+  <nav class="tabs" role="tablist" aria-label="Settings sections">
+    <button role="tab" data-tab="slideshow"><svg class="ico xs"><use href="#i-layers"/></svg>Slideshow</button>
+    <button role="tab" data-tab="display"><svg class="ico xs"><use href="#i-monitor"/></svg>Display</button>
+    <button role="tab" data-tab="screen"><svg class="ico xs"><use href="#i-sun"/></svg>Screen</button>
+    <button role="tab" data-tab="appearance"><svg class="ico xs"><use href="#i-palette"/></svg>Theme</button>
+    <button role="tab" data-tab="integrations"><svg class="ico xs"><use href="#i-plug"/></svg>Integrations</button>
+    <button role="tab" data-tab="system"><svg class="ico xs"><use href="#i-cpu"/></svg>System</button>
+  </nav>
+  <div class="drawer-body">
+
+    <section class="panel" data-panel="slideshow" role="tabpanel">
+      <div class="group">
+        <label class="row">
+          <span class="row-text"><span class="row-title">Slideshow playing</span><span class="row-desc">Advance automatically</span></span>
+          <input type="checkbox" class="switch" id="activeSwitch">
+        </label>
+        <div class="row stack">
+          <span class="row-text"><span class="row-title">Show each item for</span><span class="row-desc" id="intervalDesc"></span></span>
+          <div class="presets" id="intervalPresets">
+            <button class="chip" data-preset="10">10 s</button><button class="chip" data-preset="30">30 s</button>
+            <button class="chip" data-preset="60">1 min</button><button class="chip" data-preset="300">5 min</button>
+            <button class="chip" data-preset="900">15 min</button><button class="chip" data-preset="3600">1 h</button>
+            <label class="num"><input type="number" min="1" max="86400" step="1" data-setting="frame_interval" aria-label="Seconds per item"><span>s</span></label>
+          </div>
+        </div>
+        <div class="row stack">
+          <span class="row-text"><span class="row-title">Crossfade</span><span class="row-desc">Transition between items</span></span>
+          <div class="range-row">
+            <input type="range" min="0" max="15" step="0.5" data-setting="transition_duration" aria-label="Crossfade seconds">
+            <label class="num"><input type="number" min="0" max="3600" step="0.5" data-setting="transition_duration" aria-label="Crossfade seconds"><span>s</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="group">
+        <div class="row">
+          <span class="row-text"><span class="row-title">Order</span></span>
+          <div class="seg" data-setting="playback_mode" role="group" aria-label="Order">
+            <button data-value="sequential">In order</button><button data-value="random">Shuffle</button>
+          </div>
+        </div>
+        <div class="row">
+          <span class="row-text"><span class="row-title">Include</span><span class="row-desc">Orientation filter</span></span>
+          <div class="seg" data-setting="media_orientation_filter" role="group" aria-label="Include">
+            <button data-value="both">All</button><button data-value="landscape">Landscape</button><button data-value="portrait">Portrait</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="display" role="tabpanel" hidden>
+      <div class="group">
+        <div class="row">
+          <span class="row-text"><span class="row-title">Window</span><span class="row-desc">On the canvas' own screen</span></span>
+          <div class="seg" data-setting="display_mode" role="group" aria-label="Window">
+            <button data-value="fullscreen">Fullscreen</button><button data-value="windowed">Windowed</button>
+          </div>
+        </div>
+        <div class="row stack">
+          <span class="row-text"><span class="row-title">Scaling</span></span>
+          <div class="choice" data-setting="scale_mode" role="group" aria-label="Scaling">
+            <button data-value="fit"><span class="choice-art fit"><i></i></span><span><b>Fit</b><small>Whole picture on a soft, blurred backdrop</small></span></button>
+            <button data-value="fill"><span class="choice-art fill"><i></i></span><span><b>Fill</b><small>Edge to edge, cropping as needed</small></span></button>
+          </div>
+        </div>
+        <div class="row">
+          <span class="row-text"><span class="row-title">Rotation</span><span class="row-desc" id="rotationDesc">Clockwise</span></span>
+          <div class="seg" data-setting="rotation" data-type="int" data-extra='{"auto_rotation":false}' role="group" aria-label="Rotation">
+            <button data-value="0">0°</button><button data-value="90">90°</button><button data-value="180">180°</button><button data-value="270">270°</button>
+          </div>
+        </div>
+        <label class="row">
+          <span class="row-text"><span class="row-title">Auto-rotate</span><span class="row-desc" id="autoRotDesc">Uses the accelerometer</span></span>
+          <input type="checkbox" class="switch" data-setting="auto_rotation">
+        </label>
+      </div>
+      <div class="group">
+        <div class="row">
+          <span class="row-text"><span class="row-title">Display output</span><span class="row-desc" id="kioskDesc"></span></span>
+          <button class="btn ghost sm" id="reloadDisplay"><svg class="ico xs"><use href="#i-refresh"/></svg>Reload</button>
+        </div>
+        <div class="row">
+          <span class="row-text"><span class="row-title">Mirror on another screen</span><span class="row-desc">Open the display page on any browser</span></span>
+          <a class="btn ghost sm" href="/display" target="_blank" rel="noopener"><svg class="ico xs"><use href="#i-external"/></svg>Open</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="screen" role="tabpanel" hidden>
+      <div class="group">
+        <div class="row">
+          <span class="row-text"><span class="row-title">Screen power</span><span class="row-desc" id="powerDesc"></span></span>
+          <div class="seg" id="powerSeg" role="group" aria-label="Screen power">
+            <button data-power="on">On</button><button data-power="off">Off</button>
+          </div>
+        </div>
+        <div class="row stack">
+          <span class="row-text"><span class="row-title">Brightness</span><span class="row-desc" id="brightnessDesc"></span></span>
+          <div class="range-row">
+            <svg class="ico xs dim"><use href="#i-sun"/></svg>
+            <input type="range" min="0" max="100" step="1" id="brightness" aria-label="Brightness">
+            <output id="brightnessOut" class="out">–</output>
+          </div>
+        </div>
+        <label class="row">
+          <span class="row-text"><span class="row-title">Auto brightness</span><span class="row-desc" id="autoBrightDesc">Follows the light sensor</span></span>
+          <input type="checkbox" class="switch" data-setting="auto_brightness">
+        </label>
+        <details class="row more">
+          <summary>Light sensor calibration</summary>
+          <div class="pair">
+            <label class="field"><span>Darkest reading (lux) → 0%</span><input type="number" step="1" data-setting="light_sensor_min_reading"></label>
+            <label class="field"><span>Brightest reading (lux) → 100%</span><input type="number" step="1" data-setting="light_sensor_max_reading"></label>
+          </div>
+        </details>
+      </div>
+      <div class="group">
+        <label class="row">
+          <span class="row-text"><span class="row-title">On/off schedule</span><span class="row-desc">Outside these hours the screen turns off and the slideshow pauses</span></span>
+          <input type="checkbox" class="switch" data-setting="schedule_enabled">
+        </label>
+        <div class="pair schedule">
+          <label class="field"><span><svg class="ico xs"><use href="#i-sun"/></svg>Turn on at</span><input type="time" data-setting="time_on"></label>
+          <label class="field"><span><svg class="ico xs"><use href="#i-clock"/></svg>Turn off at</span><input type="time" data-setting="time_off"></label>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="appearance" role="tabpanel" hidden>
+      <p class="panel-intro">Theme for this control panel.</p>
+      <div class="themes" id="themes" role="group" aria-label="Theme"></div>
+    </section>
+
+    <section class="panel" data-panel="integrations" role="tabpanel" hidden>
+      <form class="group" id="mqttForm" autocomplete="off">
+        <div class="group-head">
+          <h3>MQTT</h3>
+          <span class="pill" id="mqttStatus"><i class="dot"></i><span>–</span></span>
+        </div>
+        <div class="pair">
+          <label class="field grow"><span>Broker</span><input name="mqtt_broker" placeholder="192.168.1.10 or homeassistant.local" required></label>
+          <label class="field port"><span>Port</span><input name="mqtt_port" type="number" min="1" max="65535" required></label>
+        </div>
+        <label class="field"><span>Base topic</span><input name="mqtt_topic" required spellcheck="false"></label>
+        <div class="pair">
+          <label class="field grow"><span>Username <em>optional</em></span><input name="mqtt_username" autocomplete="off" spellcheck="false"></label>
+          <label class="field grow"><span>Password <em>optional</em></span><input name="mqtt_password" type="password" autocomplete="new-password"></label>
+        </div>
+        <div class="form-actions">
+          <span class="hint" id="mqttError"></span>
+          <button class="btn primary sm" type="submit">Save &amp; connect</button>
+        </div>
+        <details class="more">
+          <summary>Topics</summary>
+          <div class="topics" id="mqttTopics"></div>
+        </details>
+      </form>
+      <div class="group">
+        <div class="group-head"><h3>Plex</h3></div>
+        <label class="row">
+          <span class="row-text"><span class="row-title">Show what's playing</span><span class="row-desc">Display artwork when Plex starts playing</span></span>
+          <input type="checkbox" class="switch" data-setting="allow_plex">
+        </label>
+        <label class="row">
+          <span class="row-text"><span class="row-title">Pause slideshow while playing</span></span>
+          <input type="checkbox" class="switch" data-setting="pause_when_plex_playing">
+        </label>
+        <div class="row">
+          <span class="row-text"><span class="row-title">Plex server port</span></span>
+          <label class="num"><input type="number" min="1" max="65535" data-setting="plex_port" aria-label="Plex port"></label>
+        </div>
+        <div class="row stack">
+          <span class="row-text"><span class="row-title">Webhook URL</span><span class="row-desc">Plex → Settings → Webhooks → Add webhook</span></span>
+          <div class="copy"><code id="plexUrl"></code><button class="icon-btn sm" id="copyPlex" aria-label="Copy webhook URL"><svg class="ico xs"><use href="#i-copy"/></svg></button></div>
+        </div>
+      </div>
+      <div class="group">
+        <div class="group-head"><h3>Videos</h3></div>
+        <label class="row">
+          <span class="row-text"><span class="row-title">Optimise for smooth playback</span><span class="row-desc">Converts videos the screen can't decode in hardware (e.g. HEVC, 4K) to H.264 in the background</span></span>
+          <input type="checkbox" class="switch" data-setting="transcode_videos">
+        </label>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="system" role="tabpanel" hidden>
+      <div class="group">
+        <label class="field"><span>Device name</span><input id="deviceNameField" maxlength="64" spellcheck="false" autocomplete="off"></label>
+      </div>
+      <div class="group">
+        <dl class="facts" id="facts"></dl>
+      </div>
+      <div class="group">
+        <div class="row">
+          <span class="row-text"><span class="row-title">Restart app</span><span class="row-desc">Applies settings that need a restart</span></span>
+          <button class="btn ghost sm" data-system="restart">Restart</button>
+        </div>
+        <div class="row">
+          <span class="row-text"><span class="row-title">Raspberry Pi</span><span class="row-desc" id="powerCtlDesc"></span></span>
+          <div class="btns">
+            <button class="btn ghost sm" data-system="reboot">Reboot</button>
+            <button class="btn danger sm" data-system="shutdown">Shut down</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</aside>
+
+<dialog class="modal" id="addDialog" aria-labelledby="addTitle">
+  <form method="dialog" class="modal-card">
+    <div class="modal-head">
+      <h2 id="addTitle">Add media</h2>
+      <button class="icon-btn" value="cancel" aria-label="Close"><svg class="ico"><use href="#i-x"/></svg></button>
+    </div>
+    <button type="button" class="dropzone" id="pickFiles">
+      <span class="dz-icon"><svg class="ico"><use href="#i-upload"/></svg></span>
+      <b>Choose photos &amp; videos</b>
+      <small>or drop them here · JPEG, PNG, WebP, GIF, MP4, MOV, WebM…</small>
+    </button>
+    <input type="file" id="fileInput" multiple accept="image/*,video/*,.mkv,.avi" hidden>
+    <div class="or"><span>or from the web</span></div>
+    <div class="url-row">
+      <label class="field grow"><span class="sr">Image or video URL</span><input type="url" id="urlInput" placeholder="https://example.com/photo.jpg" inputmode="url"></label>
+      <button type="button" class="btn primary" id="urlAdd"><svg class="ico xs"><use href="#i-link"/></svg>Add</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="modal" id="confirmDialog" aria-labelledby="confirmTitle">
+  <form method="dialog" class="modal-card narrow">
+    <h2 id="confirmTitle">Are you sure?</h2>
+    <p id="confirmText"></p>
+    <div class="form-actions">
+      <button class="btn ghost" value="cancel">Cancel</button>
+      <button class="btn danger" value="ok" id="confirmOk">Confirm</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="modal sheet" id="tileMenu" aria-label="Media actions">
+  <form method="dialog" class="modal-card narrow">
+    <div class="menu-preview"><img alt="" id="tileMenuImg"></div>
+    <button class="menu-item" value="show"><svg class="ico"><use href="#i-play"/></svg>Show on canvas</button>
+    <button class="menu-item" value="open"><svg class="ico"><use href="#i-external"/></svg>Open original</button>
+    <button class="menu-item" value="select"><svg class="ico"><use href="#i-check"/></svg>Select</button>
+    <button class="menu-item danger" value="delete"><svg class="ico"><use href="#i-trash"/></svg>Delete</button>
+    <button class="menu-item muted" value="cancel">Cancel</button>
+  </form>
+</dialog>
+
+<div class="uploads" id="uploads" hidden>
+  <div class="uploads-head"><b id="uploadsTitle">Uploading</b><button class="icon-btn sm" id="uploadsClose" aria-label="Dismiss"><svg class="ico xs"><use href="#i-x"/></svg></button></div>
+  <ul id="uploadList"></ul>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div class="drop-overlay" id="dropOverlay" hidden><div><svg class="ico"><use href="#i-upload"/></svg><b>Drop to add to your canvas</b></div></div>
+
+<script src="/assets/app.js?v={{V}}"></script>
+</body>
+</html>

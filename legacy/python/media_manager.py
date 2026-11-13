@@ -10,6 +10,7 @@ from typing import List, Optional
 import random
 
 from image_container import ImageContainer
+from constants import Orientation
 
 #this class MediaManager is responsible for managing the media files
 #it will be responsible for loading the media files from the media directory
@@ -18,7 +19,9 @@ from image_container import ImageContainer
 
 class MediaManager:
 
-    ALLOWED_TYPES = ('.png', '.jpg', '.jpeg', '.bmp', '.webp')
+    IMAGE_TYPES = ('.png', '.jpg', '.jpeg', '.bmp', '.webp')
+    VIDEO_TYPES = ('.mp4', '.mov', '.avi', '.webm', '.mkv', '.gif')
+    ALLOWED_TYPES = IMAGE_TYPES + VIDEO_TYPES
 
     @property
     def orientation_filter(self) -> ImageContainer.Orientation:
@@ -61,15 +64,22 @@ class MediaManager:
             self.playlist = media_files
 
     def load_media_files(self) -> List[ImageContainer]:
-        # media_files = []
-        for file in os.listdir(self.media_dir):
-            if file.lower().endswith(MediaManager.ALLOWED_TYPES):
-                self.add_media_file(os.path.join(self.media_dir, file))
+        """Load media files using lazy loading (images loaded on demand)."""
+        # Use os.scandir() for better performance
+        for entry in os.scandir(self.media_dir):
+            if entry.is_file() and entry.name.lower().endswith(MediaManager.ALLOWED_TYPES):
+                self.add_media_file(entry.path, read_image=False)
         return self.all_media_files
 
-    def add_media_file(self, file_path) -> None:
+    def add_media_file(self, file_path, read_image=False) -> None:
+        """Add a media file to the manager.
+        
+        Args:
+            file_path: Path to the media file
+            read_image: If False (default), uses lazy loading - image data loaded on demand
+        """
         img = ImageContainer()
-        img.from_file(file_path, self.thumbnail_dir, self.thumbnail_width, self.thumbnail_height, read_image=True)
+        img.from_file(file_path, self.thumbnail_dir, self.thumbnail_width, self.thumbnail_height, read_image=read_image)
         self.all_media_files.append(img)
         if self.media_files_changed_callback is not None:
             self.media_files_changed_callback()
@@ -154,7 +164,7 @@ class MediaManager:
         return self.current_media
 
     def get_media_by_orientation(self, orientation) -> List[ImageContainer]:
-        if orientation == 'both':
+        if orientation == Orientation.BOTH.value:
             return self.all_media_files
         return [media for media in self.all_media_files if media.orientation == orientation]
 

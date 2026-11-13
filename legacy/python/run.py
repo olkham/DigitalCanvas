@@ -20,6 +20,7 @@ from flask import (
 )
 
 from config_manager import ConfigManager
+from constants import PowerMode, DisplayMode, ScaleMode, Orientation
 from monitor_controller import MonitorController
 from sensors import SensorReader
 from slideshow_manager import SlideshowManager
@@ -89,15 +90,24 @@ class API:
 
 
 class CombinedApp:
-    def __init__(self, config_manager: dict):
+    def __init__(self, config_manager: ConfigManager):
         self.config_manager: ConfigManager = config_manager
         
         self.app = Flask(__name__)
         self.app.config['UPLOAD_FOLDER'] = 'images'
         self.app.config['THUMBNAIL_FOLDER'] = 'thumbnails'
 
+        # Run file conversion synchronously (quick operation)
         convert_files_to_unique_filenames(self.app.config['UPLOAD_FOLDER'])
-        create_thumbnails_for_existing_images(self.app.config['UPLOAD_FOLDER'], self.app.config['THUMBNAIL_FOLDER'])
+        
+        # Run thumbnail generation in background thread to not block startup
+        thumbnail_thread = threading.Thread(
+            target=create_thumbnails_for_existing_images,
+            args=(self.app.config['UPLOAD_FOLDER'], self.app.config['THUMBNAIL_FOLDER']),
+            daemon=True
+        )
+        thumbnail_thread.start()
+        
         self.setup_flask_routes()
 
         self.slideshow_manager = SlideshowManager(os.path.join(os.path.dirname(os.path.abspath(__file__)), self.app.config['UPLOAD_FOLDER']),
@@ -108,6 +118,12 @@ class CombinedApp:
 
         self.on_trigger = False
         self.previous_slideshow_active_state = False
+
+    def _check_viewer_ready(self):
+        """Check if viewer is initialized. Returns tuple (is_ready, error_response)"""
+        if self.slideshow_manager.viewer is None:
+            return False, (render_template('loading.html'), 503)
+        return True, None
 
     def setup_flask_routes(self):
         
@@ -184,6 +200,10 @@ class CombinedApp:
         @self.app.route(API.upload, methods=['POST'])
         def upload_file():
             if request.method == 'POST':
+                ready, error = self._check_viewer_ready()
+                if not ready:
+                    return error
+                    
                 list_was_empty = len(self.slideshow_manager.viewer.media_manager.all_media_files) == 0
                 if 'file' in request.files and request.files['file'].filename != '':
                     files = request.files.getlist('file')
@@ -244,10 +264,11 @@ class CombinedApp:
                 os.remove(thumbnail_path)
             
             #remove the image from the slideshow files list
-            self.slideshow_manager.viewer.media_manager.remove_media_file(file_path)
+            if self.slideshow_manager.viewer is not None:
+                self.slideshow_manager.viewer.media_manager.remove_media_file(file_path)
 
-            if len(self.slideshow_manager.viewer.media_manager.all_media_files) == 0:
-                self.slideshow_manager.viewer.set_image_from_path('static/background.png')
+                if len(self.slideshow_manager.viewer.media_manager.all_media_files) == 0:
+                    self.slideshow_manager.viewer.set_image_from_path('static/background.png')
 
             return redirect(url_for('index'))
 
@@ -259,7 +280,7 @@ class CombinedApp:
                 return "Filename is required", 400  # Return a 400 Bad Request if filename is not provided
 
             file_path = os.path.join(self.app.config['UPLOAD_FOLDER'], filename)
-            if os.path.exists(file_path):
+            if os.path.exists(file_path) and self.slideshow_manager.viewer is not None:
                 self.slideshow_manager.viewer.select_image(filename)
             return '', 204
         
@@ -270,13 +291,14 @@ class CombinedApp:
         
         @self.app.route(API.canvas, methods=['GET'])
         def canvas():
-            if self.slideshow_manager.viewer is not None:
-                canvas = self.slideshow_manager.viewer.canvas_image
-                #return an opencv/nparry image
-                _, buffer = cv2.imencode('.jpg', canvas)
-                response = make_response(buffer.tobytes())
-                response.headers['Content-Type'] = 'image/jpeg'
-                return response
+            if self.slideshow_manager.viewer is None or self.slideshow_manager.viewer.canvas_image is None:
+                return "Viewer not ready", 503
+            canvas = self.slideshow_manager.viewer.canvas_image
+            #return an opencv/nparry image
+            _, buffer = cv2.imencode('.jpg', canvas)
+            response = make_response(buffer.tobytes())
+            response.headers['Content-Type'] = 'image/jpeg'
+            return response
         
         @self.app.route(API.configure_mqtt, methods=['POST'])
         def configure_mqtt():
@@ -339,11 +361,11 @@ class CombinedApp:
                 # Handle screen control
                 display_power_action = request.form.get('power')
                 if display_power_action is not None:
-                    if display_power_action == 'on':
-                        self.monitor_controller.set_power_mode('on')
+                    if display_power_action == PowerMode.ON.value:
+                        self.monitor_controller.set_power_mode(PowerMode.ON.value)
                         return jsonify(success=True)
-                    elif display_power_action == 'off':
-                        self.monitor_controller.set_power_mode('off')
+                    elif display_power_action == PowerMode.OFF.value:
+                        self.monitor_controller.set_power_mode(PowerMode.OFF.value)
                         return jsonify(success=True)
                 
                 # if the oreintation is changed, we need to refresh the page to update the gallery view
@@ -492,6 +514,12 @@ class CombinedApp:
         smooth_luminance = [None]*smoothing_window
         smooth_index = 0
         
+        # Cache parsed time values to avoid parsing every iteration
+        cached_time_on_str = None
+        cached_time_off_str = None
+        cached_time_on = None
+        cached_time_off = None
+        
         while self.slideshow_manager.viewer is None:
             time.sleep(1)
         
@@ -526,14 +554,20 @@ class CombinedApp:
             smooth_index = (smooth_index + 1) % smoothing_window
             
             if self.config_manager.config['time_on'] != self.config_manager.config['time_off']:
+                    # Only re-parse times if the config values have changed
+                    if (cached_time_on_str != self.config_manager.config['time_on'] or 
+                        cached_time_off_str != self.config_manager.config['time_off']):
+                        cached_time_on_str = self.config_manager.config['time_on']
+                        cached_time_off_str = self.config_manager.config['time_off']
+                        cached_time_on = datetime.datetime.strptime(cached_time_on_str, "%H:%M").time()
+                        cached_time_off = datetime.datetime.strptime(cached_time_off_str, "%H:%M").time()
+                    
                     current_time = datetime.datetime.now().time()
-                    time_on = datetime.datetime.strptime(self.config_manager.config['time_on'], "%H:%M").time()
-                    time_off = datetime.datetime.strptime(self.config_manager.config['time_off'], "%H:%M").time()
 
-                    if time_on <= current_time < time_off:
+                    if cached_time_on <= current_time < cached_time_off:
                         if not self.on_trigger:
                             self.on_trigger = True
-                            self.monitor_controller.set_power_mode('on')
+                            self.monitor_controller.set_power_mode(PowerMode.ON.value)
                             if self.previous_slideshow_active_state:
                                 #only resume the slideshow if it was active before the display was turned off
                                 self.slideshow_manager.viewer.play_slideshow()
@@ -541,7 +575,7 @@ class CombinedApp:
                     else:
                         if self.on_trigger:
                             self.on_trigger = False
-                            self.monitor_controller.set_power_mode('off')
+                            self.monitor_controller.set_power_mode(PowerMode.OFF.value)
                             self.previous_slideshow_active_state = self.slideshow_manager.viewer.slideshow_active
                             self.slideshow_manager.viewer.pause_slideshow()
                             print(f"Turning off the display at {current_time}")
@@ -549,7 +583,7 @@ class CombinedApp:
             time.sleep(0.1)
 
     def run_flask(self):
-        self.app.run(host='0.0.0.0', port=self.config_manager.config['web_interface_port'], debug=False, use_reloader=False)
+        self.app.run(host='0.0.0.0', port=self.config_manager.config['web_interface_port'], debug=False, use_reloader=False, threaded=True)
 
     def run(self):
         flask_thread = threading.Thread(target=self.run_flask, daemon=True)

@@ -1,23 +1,29 @@
-__pycache__/
-_archive/
+# Runtime data
 /images/*
-__pycache__/*.pyc
-__pycache__\*.pyc
-__pycache__/utils.cpython-38.pyc
-__pycache__/slideshow_manager.cpython-38.pyc
-__pycache__/image_viewer.cpython-38.pyc
-__pycache__/config_manager.cpython-38.pyc
-__pycache__/config_manager.cpython-38.pyc
-__pycache__/slideshow_manager.cpython-38.pyc
+/thumbnails/*
+/cache/
+/dist/
 config.json
+*.log
+
+# Python (legacy implementation)
+__pycache__/
+venv/
+_archive/
+
+# Editor
 .vscode/launch.json
+
+# Media files anywhere...
 *.jpg
+*.jpeg
 *.png
 *.bmp
 *.gif
-*.jpeg
 *.tiff
 *.tif
 *.svg
 *.webp
-venv/
+# ...except the assets embedded in the binary and the legacy app's own files.
+!/web/static/**
+!/legacy/**
